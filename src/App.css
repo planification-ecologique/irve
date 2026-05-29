@@ -604,6 +604,23 @@
   border: 1px solid var(--border);
 }
 
+.stat-card--power {
+  border-color: color-mix(in srgb, currentColor 35%, transparent);
+}
+
+.stat-card--power .stat-card__label {
+  color: var(--text-muted);
+}
+
+.stat-card--unavailable {
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.stat-card--unavailable .stat-card__value {
+  color: #f87171;
+}
+
 .stat-card__value {
   display: block;
   font-size: 1.375rem;
@@ -721,9 +738,15 @@
   background: rgba(255, 255, 255, 0.06);
 }
 
+.map-popup__power.power-badge--p50 { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+.map-popup__power.power-badge--p100 { background: rgba(34, 211, 238, 0.15); color: #22d3ee; }
+.map-popup__power.power-badge--p150 { background: rgba(34, 211, 165, 0.15); color: #22d3a5; }
+.map-popup__power.power-badge--p180 { background: rgba(163, 230, 53, 0.15); color: #a3e635; }
+.map-popup__power.power-badge--p350 { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+
 .map-popup__none {
-  color: #94a3b8;
-  background: rgba(148, 163, 184, 0.15);
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.15);
 }
 
 .map-popup__avail {

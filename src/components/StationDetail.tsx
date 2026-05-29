@@ -59,7 +59,7 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
           <span className="stat-card__value">{summary.max_power}</span>
           <span className="stat-card__label">kW max</span>
         </div>
-        <div className="stat-card">
+        <div className={`stat-card${dynamic.available_count === 0 ? ' stat-card--unavailable' : ''}`}>
           <span className="stat-card__value">
             {dynamic.available_count} sur {station.pdc_count}
           </span>
