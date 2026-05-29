@@ -12,6 +12,23 @@ import { ConnectorIcon } from './ConnectorIcon'
 
 export type { AvailabilityFilter }
 
+const AVAILABILITY_OPTIONS: {
+  value: AvailabilityFilter
+  label: string
+  chipClass: string
+  hint?: string
+}[] = [
+  { value: 'all', label: 'Toutes', chipClass: 'chip--avail-all' },
+  { value: 'available', label: 'Avec dispo', chipClass: 'chip--avail-available' },
+  { value: 'full', label: 'Pleines', chipClass: 'chip--avail-full' },
+  {
+    value: 'out_of_service',
+    label: 'HS',
+    chipClass: 'chip--avail-out',
+    hint: 'Stations sans aucune prise opérationnelle. Les pannes partielles (une partie des PDC hors service) restent visibles dans « Toutes ».',
+  },
+]
+
 export interface FilterState {
   search: string
   operator: string | null
@@ -89,6 +106,7 @@ export function FiltersPanel({
   totalCount,
   filteredCount,
 }: FiltersPanelProps) {
+  const [outOfServiceHintOpen, setOutOfServiceHintOpen] = useState(false)
   const operatorOptions = useMemo(
     () => getOperatorOptionsWithCounts(stations),
     [stations],
@@ -187,23 +205,41 @@ export function FiltersPanel({
       <div className="field">
         <span>Disponibilité</span>
         <div className="chip-group chip-group--availability">
-          {(
-            [
-              ['all', 'Toutes'],
-              ['available', 'Avec dispo'],
-              ['full', 'Pleines'],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              className={`chip chip--availability${filters.availability === value ? ' chip--active' : ''}`}
-              onClick={() => onChange({ ...filters, availability: value })}
-            >
-              {label}
-            </button>
-          ))}
+          {AVAILABILITY_OPTIONS.map(({ value, label, chipClass, hint }) =>
+            hint ? (
+              <div key={value} className="chip-with-info">
+                <button
+                  type="button"
+                  className={`chip chip--availability ${chipClass}${filters.availability === value ? ' chip--active' : ''}`}
+                  onClick={() => onChange({ ...filters, availability: value })}
+                >
+                  {label}
+                </button>
+                <button
+                  type="button"
+                  className={`chip__info${outOfServiceHintOpen ? ' chip__info--open' : ''}`}
+                  aria-expanded={outOfServiceHintOpen}
+                  aria-label="Explication du filtre Hors service"
+                  onClick={() => setOutOfServiceHintOpen((open) => !open)}
+                >
+                  i
+                </button>
+              </div>
+            ) : (
+              <button
+                key={value}
+                type="button"
+                className={`chip chip--availability ${chipClass}${filters.availability === value ? ' chip--active' : ''}`}
+                onClick={() => onChange({ ...filters, availability: value })}
+              >
+                {label}
+              </button>
+            ),
+          )}
         </div>
+        {outOfServiceHintOpen && (
+          <p className="field__hint field__hint--info">{AVAILABILITY_OPTIONS.find((o) => o.hint)?.hint}</p>
+        )}
       </div>
     </section>
   )

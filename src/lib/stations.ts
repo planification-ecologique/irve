@@ -17,7 +17,7 @@ export function sanitizeIrveResponse(data: IrvePointsResponse): IrvePointsRespon
   }
 }
 
-export type AvailabilityFilter = 'all' | 'available' | 'full'
+export type AvailabilityFilter = 'all' | 'available' | 'full' | 'out_of_service'
 
 export function isStationAvailable(station: Station): boolean {
   return station.dynamic_summary.available_count > 0
@@ -29,6 +29,11 @@ export function isStationFull(station: Station): boolean {
   return dynamic.available_count === 0 && dynamic.en_service_count > 0
 }
 
+/** Aucune prise opérationnelle (toutes hors service ou sans retour dynamique). */
+export function isStationOutOfService(station: Station): boolean {
+  return station.dynamic_summary.en_service_count === 0
+}
+
 export function matchesAvailabilityFilter(
   station: Station,
   availability: AvailabilityFilter,
@@ -38,6 +43,8 @@ export function matchesAvailabilityFilter(
       return isStationAvailable(station)
     case 'full':
       return isStationFull(station)
+    case 'out_of_service':
+      return isStationOutOfService(station)
     default:
       return true
   }

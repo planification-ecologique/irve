@@ -42,6 +42,10 @@ export function StatsBar({
     (sum, station) => sum + station.dynamic_summary.occupied_count,
     0,
   )
+  const outOfServicePdc = stations.reduce(
+    (sum, station) => sum + Math.max(0, station.pdc_count - station.dynamic_summary.en_service_count),
+    0,
+  )
   const ultraCount = stations.filter((s) => s.summary.max_power >= 150).length
 
   const snapshotLabel = updatedAt
@@ -64,8 +68,8 @@ export function StatsBar({
       <div className="stats-bar__brand">
         <div className="stats-bar__logo">⚡</div>
         <div>
-          <h1>Carte IRVE</h1>
-          <p>Infrastructure de recharge électrique — France</p>
+          <h1>Carto IRVE</h1>
+          <p>Infrastructure de recharge électrique en itiniérance — France</p>
         </div>
       </div>
 
@@ -106,10 +110,25 @@ export function StatsBar({
               <span className="metric__label">Prises (total)</span>
             </div>
             <div className="metric">
-              <span className="metric__value metric__value--warn">
+              <span className="metric__value metric__value--danger">
                 {format(occupiedPdc)}
               </span>
               <span className="metric__label">Occupées</span>
+            </div>
+          </>
+        )}
+
+        {availability === 'out_of_service' && (
+          <>
+            <div className="metric">
+              <span className="metric__value">{format(totalPdc)}</span>
+              <span className="metric__label">Prises (total)</span>
+            </div>
+            <div className="metric">
+              <span className="metric__value metric__value--muted">
+                {format(outOfServicePdc)}
+              </span>
+              <span className="metric__label">Hors service</span>
             </div>
           </>
         )}
