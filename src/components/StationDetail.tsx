@@ -23,11 +23,6 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
         <span className={`power-badge ${powerClass}`}>
           {summary.max_power} kW · {getPowerLabel(summary.max_power)}
         </span>
-        {dynamic.available_count > 0 && (
-          <span className="availability-badge availability-badge--available">
-            {dynamic.available_count} dispo.
-          </span>
-        )}
       </div>
 
       <h2>{station.nom_station}</h2>
@@ -60,21 +55,15 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
       </dl>
 
       <div className="station-detail__stats">
-        <div className="stat-card">
+        <div className={`stat-card stat-card--power ${powerClass}`}>
           <span className="stat-card__value">{summary.max_power}</span>
           <span className="stat-card__label">kW max</span>
         </div>
         <div className="stat-card">
-          <span className="stat-card__value">{station.pdc_count}</span>
-          <span className="stat-card__label">Points de charge</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-card__value">{dynamic.available_count}</span>
-          <span className="stat-card__label">Disponibles</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-card__value">{dynamic.occupied_count}</span>
-          <span className="stat-card__label">Occupés</span>
+          <span className="stat-card__value">
+            {dynamic.available_count} sur {station.pdc_count}
+          </span>
+          <span className="stat-card__label">PDC disponibles</span>
         </div>
       </div>
 
