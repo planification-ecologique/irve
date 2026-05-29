@@ -6,20 +6,23 @@ import {
   POWER_LABELS,
 } from '../lib/power'
 import { CONNECTOR_META, CONNECTOR_TYPES, stationHasConnector } from '../lib/connectors'
+import { matchesAvailabilityFilter, type AvailabilityFilter } from '../lib/stations'
 import { ConnectorIcon } from './ConnectorIcon'
+
+export type { AvailabilityFilter }
 
 export interface FilterState {
   search: string
   minPower: number
-  connectors: ConnectorType[]
-  availableOnly: boolean
+  connector: ConnectorType | null
+  availability: AvailabilityFilter
 }
 
 export const defaultFilters: FilterState = {
   search: '',
   minPower: 50,
-  connectors: [],
-  availableOnly: false,
+  connector: null,
+  availability: 'all',
 }
 
 export function useFilteredStations(stations: Station[] | undefined) {
@@ -32,13 +35,10 @@ export function useFilteredStations(stations: Station[] | undefined) {
 
     return stations.filter((station) => {
       if (station.summary.max_power < filters.minPower) return false
-      if (filters.availableOnly && station.dynamic_summary.available_count === 0) return false
+      if (!matchesAvailabilityFilter(station, filters.availability)) return false
 
-      if (filters.connectors.length > 0) {
-        const matchesConnector = filters.connectors.some((connector) =>
-          stationHasConnector(station.summary, connector),
-        )
-        if (!matchesConnector) return false
+      if (filters.connector && !stationHasConnector(station.summary, filters.connector)) {
+        return false
       }
 
       if (query) {
@@ -73,12 +73,11 @@ export function FiltersPanel({
   totalCount,
   filteredCount,
 }: FiltersPanelProps) {
-  const toggleConnector = (connector: ConnectorType) => {
-    const next = filters.connectors.includes(connector)
-      ? filters.connectors.filter((value) => value !== connector)
-      : [...filters.connectors, connector]
-
-    onChange({ ...filters, connectors: next })
+  const selectConnector = (connector: ConnectorType) => {
+    onChange({
+      ...filters,
+      connector: filters.connector === connector ? null : connector,
+    })
   }
 
   return (
@@ -121,7 +120,7 @@ export function FiltersPanel({
         <span>Connecteurs</span>
         <div className="connector-filters">
           {CONNECTOR_TYPES.map((connector) => {
-            const active = filters.connectors.includes(connector)
+            const active = filters.connector === connector
             const meta = CONNECTOR_META[connector]
 
             return (
@@ -129,7 +128,7 @@ export function FiltersPanel({
                 key={connector}
                 type="button"
                 className={`connector-filter${active ? ' connector-filter--active' : ''}`}
-                onClick={() => toggleConnector(connector)}
+                onClick={() => selectConnector(connector)}
                 title={meta.label}
                 aria-pressed={active}
               >
@@ -141,16 +140,27 @@ export function FiltersPanel({
         </div>
       </div>
 
-      <label className="toggle">
-        <input
-          type="checkbox"
-          checked={filters.availableOnly}
-          onChange={(event) =>
-            onChange({ ...filters, availableOnly: event.target.checked })
-          }
-        />
-        <span>Disponibles uniquement</span>
-      </label>
+      <div className="field">
+        <span>Disponibilité</span>
+        <div className="chip-group chip-group--availability">
+          {(
+            [
+              ['all', 'Toutes'],
+              ['available', 'Avec dispo'],
+              ['full', 'Pleines'],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={`chip chip--availability${filters.availability === value ? ' chip--active' : ''}`}
+              onClick={() => onChange({ ...filters, availability: value })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
     </section>
   )
 }

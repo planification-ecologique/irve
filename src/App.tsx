@@ -21,6 +21,7 @@ function App() {
     <div className="app">
       <StatsBar
         stations={filtered}
+        availability={filters.availability}
         updatedAt={data?.updatedAt ?? null}
         loading={loading}
       />

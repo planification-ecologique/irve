@@ -3,8 +3,8 @@ import maplibregl, { type GeoJSONSource, type Map, type MapMouseEvent } from 'ma
 import type { Feature, Point } from 'geojson'
 import type { Station, StationFeatureProperties } from '../types/irve'
 import { stationsToGeoJSON } from '../lib/geojson'
+import { applyFrenchLabels, CARTO_STYLE_URL, MAP_LOCALE_FR } from '../lib/mapStyle'
 
-const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
 const FRANCE_CENTER: [number, number] = [2.5, 46.6]
 const FRANCE_ZOOM = 5.2
 
@@ -87,17 +87,20 @@ export function IrveMap({ stations, selectedKey, onSelect }: IrveMapProps) {
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: MAP_STYLE,
+      style: CARTO_STYLE_URL,
       center: FRANCE_CENTER,
       zoom: FRANCE_ZOOM,
       pitch: 0,
       attributionControl: false,
+      locale: { ...MAP_LOCALE_FR },
     })
 
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right')
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left')
 
     map.on('load', () => {
+      applyFrenchLabels(map)
+
       map.addSource('stations', {
         type: 'geojson',
         data: stationsToGeoJSON(stationsRef.current),
