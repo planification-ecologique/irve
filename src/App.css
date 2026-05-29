@@ -120,6 +120,26 @@
   letter-spacing: 0.02em;
 }
 
+.stats-bar__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.125rem;
+  color: var(--accent);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.stats-bar__live-dot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0.375rem rgba(34, 211, 165, 0.65);
+}
+
 /* Sidebar */
 .sidebar {
   display: flex;

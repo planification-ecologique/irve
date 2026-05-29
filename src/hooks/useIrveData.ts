@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { fetchIrvePoints, type IrveDataSource } from '../api/irve'
+import { fetchIrvePoints, POLL_INTERVAL_MS, type IrveDataSource } from '../api/irve'
 import { sanitizeIrveResponse } from '../lib/stations'
 import type { IrvePointsResponse } from '../types/irve'
 
 interface UseIrveDataResult {
   data: IrvePointsResponse | null
   dataSource: IrveDataSource | null
+  lastFetchedAt: Date | null
   loading: boolean
   error: string | null
   refetch: () => void
@@ -14,6 +15,7 @@ interface UseIrveDataResult {
 export function useIrveData(): UseIrveDataResult {
   const [data, setData] = useState<IrvePointsResponse | null>(null)
   const [dataSource, setDataSource] = useState<IrveDataSource | null>(null)
+  const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
@@ -32,6 +34,7 @@ export function useIrveData(): UseIrveDataResult {
         if (!cancelled) {
           setData(sanitizeIrveResponse(raw))
           setDataSource(source)
+          setLastFetchedAt(new Date())
           if (!showLoading || source === 'live') {
             setError(null)
           }
@@ -53,7 +56,7 @@ export function useIrveData(): UseIrveDataResult {
 
     const interval = window.setInterval(() => {
       void load(false)
-    }, 120_000)
+    }, POLL_INTERVAL_MS)
 
     return () => {
       cancelled = true
@@ -64,6 +67,7 @@ export function useIrveData(): UseIrveDataResult {
   return {
     data,
     dataSource,
+    lastFetchedAt,
     loading,
     error,
     refetch: () => setTick((value) => value + 1),

@@ -1,4 +1,6 @@
-import type { IrveDataSource } from '../api/irve'
+import { useEffect, useState } from 'react'
+import { POLL_INTERVAL_MINUTES, type IrveDataSource } from '../api/irve'
+import { formatRelativeMinutes } from '../lib/time'
 import type { Station } from '../types/irve'
 import type { AvailabilityFilter } from '../lib/stations'
 
@@ -6,6 +8,7 @@ interface StatsBarProps {
   stations: Station[]
   availability: AvailabilityFilter
   updatedAt: string | null
+  lastFetchedAt: Date | null
   loading: boolean
   dataSource: IrveDataSource | null
 }
@@ -14,9 +17,22 @@ export function StatsBar({
   stations,
   availability,
   updatedAt,
+  lastFetchedAt,
   loading,
   dataSource,
 }: StatsBarProps) {
+  const [, setNowTick] = useState(0)
+
+  useEffect(() => {
+    if (dataSource !== 'live' || !lastFetchedAt) return
+
+    const interval = window.setInterval(() => {
+      setNowTick((value) => value + 1)
+    }, 60_000)
+
+    return () => window.clearInterval(interval)
+  }, [dataSource, lastFetchedAt])
+
   const totalPdc = stations.reduce((sum, station) => sum + station.pdc_count, 0)
   const availablePdc = stations.reduce(
     (sum, station) => sum + station.dynamic_summary.available_count,
@@ -28,7 +44,7 @@ export function StatsBar({
   )
   const ultraCount = stations.filter((s) => s.summary.max_power >= 150).length
 
-  const updatedLabel = updatedAt
+  const snapshotLabel = updatedAt
     ? new Intl.DateTimeFormat('fr-FR', {
         dateStyle: 'short',
         timeStyle: 'short',
@@ -37,6 +53,11 @@ export function StatsBar({
 
   const format = (value: number) =>
     loading ? '…' : value.toLocaleString('fr-FR')
+
+  const liveLabel =
+    lastFetchedAt && !loading
+      ? formatRelativeMinutes(lastFetchedAt)
+      : '…'
 
   return (
     <header className="stats-bar">
@@ -100,16 +121,31 @@ export function StatsBar({
       </div>
 
       <div className="stats-bar__updated">
-        {dataSource === 'fallback' && (
-          <span
-            className="stats-bar__stale"
-            title="L’API QualiCharge est indisponible. Affichage d’un snapshot figé au dernier déploiement."
-          >
-            Données non live
-          </span>
+        {dataSource === 'live' ? (
+          <>
+            <span
+              className="stats-bar__live"
+              title={`Rafraîchissement automatique toutes les ${POLL_INTERVAL_MINUTES} minutes`}
+            >
+              <span className="stats-bar__live-dot" aria-hidden="true" />
+              Live
+            </span>
+            <strong>maj {liveLabel}</strong>
+          </>
+        ) : (
+          <>
+            {dataSource === 'fallback' && (
+              <span
+                className="stats-bar__stale"
+                title="L’API QualiCharge est indisponible. Affichage d’un snapshot figé au dernier déploiement."
+              >
+                Données non live
+              </span>
+            )}
+            <span>Màj</span>
+            <strong>{loading ? '…' : snapshotLabel}</strong>
+          </>
         )}
-        <span>Màj</span>
-        <strong>{loading ? '…' : updatedLabel}</strong>
       </div>
     </header>
   )

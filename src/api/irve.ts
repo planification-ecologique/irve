@@ -3,6 +3,10 @@ import type { IrvePointsResponse } from '../types/irve'
 const LIVE_URL = '/api/irve/points/'
 const FALLBACK_URL = '/data/stations.json'
 
+/** Intervalle de rafraîchissement quand l’API live répond (aligné cache proxy 2 min). */
+export const POLL_INTERVAL_MS = 2 * 60 * 1000
+export const POLL_INTERVAL_MINUTES = POLL_INTERVAL_MS / 60_000
+
 export type IrveDataSource = 'live' | 'fallback'
 
 export interface IrveFetchResult {

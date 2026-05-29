@@ -9,7 +9,7 @@ import type { Station } from './types/irve'
 import './App.css'
 
 function App() {
-  const { data, dataSource, loading, error, refetch } = useIrveData()
+  const { data, dataSource, lastFetchedAt, loading, error, refetch } = useIrveData()
   const { filters, setFilters, filtered } = useFilteredStations(data?.stations)
   const [selected, setSelected] = useState<Station | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -27,6 +27,7 @@ function App() {
         stations={filtered}
         availability={filters.availability}
         updatedAt={data?.updatedAt ?? null}
+        lastFetchedAt={lastFetchedAt}
         loading={loading}
         dataSource={dataSource}
       />
@@ -55,7 +56,7 @@ function App() {
           <p className="sidebar__source">
             Données{' '}
             <a
-              href="https://qualicharge-carto.osc-fr1.scalingo.io/api/irve/points/"
+              href="https://www.qualicharge.beta.gouv.fr/cartographie/"
               target="_blank"
               rel="noreferrer"
             >
