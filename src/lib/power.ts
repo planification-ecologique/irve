@@ -2,8 +2,6 @@ export const MIN_POWER_THRESHOLDS = [50, 100, 150, 180, 350] as const
 
 export type PowerThreshold = (typeof MIN_POWER_THRESHOLDS)[number]
 
-export type ConnectorType = 'ccs' | 'type2' | 'chademo' | 'ef'
-
 export const POWER_COLORS: Record<PowerThreshold, string> = {
   50: '#38bdf8',
   100: '#22d3ee',

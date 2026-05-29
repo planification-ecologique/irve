@@ -597,31 +597,191 @@
   background: var(--accent-dim);
 }
 
+/* MapLibre controls */
+.maplibregl-ctrl-group {
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: var(--shadow) !important;
+}
+
+.maplibregl-ctrl-group button {
+  width: 36px !important;
+  height: 36px !important;
+}
+
+.maplibregl-ctrl-bottom-right {
+  bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)) !important;
+  right: 0.75rem !important;
+}
+
+.maplibregl-ctrl-bottom-left {
+  bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)) !important;
+  left: 0.75rem !important;
+}
+
+.maplibregl-user-location-dot,
+.maplibregl-user-location-accuracy-circle {
+  pointer-events: none;
+}
+
+/* Map controls overlay */
+.filters-toggle {
+  display: none;
+}
+
+.filters-backdrop {
+  display: none;
+}
+
+.sidebar__handle,
+.sidebar__close-mobile {
+  display: none;
+}
+
 /* Responsive */
 @media (max-width: 900px) {
   .app__main {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: 1fr;
+    position: relative;
   }
 
   .sidebar {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 40;
+    max-height: min(78vh, 640px);
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
     border-right: none;
-    border-bottom: 1px solid var(--border);
-    max-height: 40vh;
+    border-top: 1px solid var(--border);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.45);
+    transform: translateY(calc(100% + 1rem));
+    transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    overflow-y: auto;
+  }
+
+  .sidebar--open {
+    transform: translateY(0);
+  }
+
+  .sidebar__handle {
+    display: block;
+    width: 36px;
+    height: 4px;
+    margin: 0 auto 0.75rem;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.45);
+  }
+
+  .sidebar__close-mobile {
+    display: block;
+    width: 100%;
+    margin-top: 0.5rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid rgba(34, 211, 165, 0.35);
+    border-radius: 12px;
+    background: rgba(34, 211, 165, 0.12);
+    color: var(--accent);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .sidebar__source {
+    margin-top: 0.5rem;
+  }
+
+  .filters-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    border: none;
+    padding: 0;
+    background: rgba(11, 15, 23, 0.55);
+    backdrop-filter: blur(4px);
+    cursor: pointer;
+  }
+
+  .filters-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    position: absolute;
+    top: calc(0.75rem + env(safe-area-inset-top, 0px));
+    left: 0.75rem;
+    z-index: 12;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(16px);
+    color: var(--text);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+  }
+
+  .filters-toggle--active {
+    border-color: rgba(34, 211, 165, 0.45);
+  }
+
+  .filters-toggle__badge {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.25rem;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #0b0f17;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .map-shell {
+    min-height: 0;
+  }
+
+  .station-detail {
+    top: auto;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: min(52vh, 420px);
+    border-radius: 16px 16px 0 0;
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
   }
 
   .stats-bar {
     flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 0.625rem 0.875rem;
   }
 
   .stats-bar__metrics {
     order: 3;
     width: 100%;
     justify-content: space-between;
+    gap: 0.75rem;
   }
 
   .stats-bar__updated {
     display: none;
+  }
+
+  .stats-bar__logo {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+  }
+
+  .stats-bar__brand h1 {
+    font-size: 1rem;
   }
 }
 
@@ -632,5 +792,9 @@
 
   .metric__value {
     font-size: 1rem;
+  }
+
+  .metric__label {
+    font-size: 0.625rem;
   }
 }

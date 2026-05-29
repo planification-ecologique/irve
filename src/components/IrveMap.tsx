@@ -103,6 +103,15 @@ export function IrveMap({ stations, selectedKey, onSelect }: IrveMapProps) {
       locale: { ...MAP_LOCALE_FR },
     })
 
+    map.addControl(
+      new maplibregl.GeolocateControl({
+        positionOptions: { enableHighAccuracy: true },
+        trackUserLocation: true,
+        showUserLocation: true,
+        showAccuracyCircle: true,
+      }),
+      'bottom-right',
+    )
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right')
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left')
 

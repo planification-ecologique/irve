@@ -5,7 +5,7 @@ import {
   getPowerThresholdClass,
   POWER_LABELS,
 } from '../lib/power'
-import { CONNECTOR_META, CONNECTOR_TYPES, stationHasConnector } from '../lib/connectors'
+import { CONNECTOR_META, CONNECTOR_FILTER_TYPES, stationHasConnector } from '../lib/connectors'
 import { matchesAvailabilityFilter, type AvailabilityFilter } from '../lib/stations'
 import { getOperatorOptionsWithCounts, getOperatorRequiredNote, stationMatchesOperator } from '../lib/operators'
 import { ConnectorIcon } from './ConnectorIcon'
@@ -28,6 +28,16 @@ export const defaultFilters: FilterState = {
   availability: 'all',
 }
 
+export function countActiveFilters(filters: FilterState): number {
+  let count = 0
+  if (filters.search.trim()) count++
+  if (filters.operator) count++
+  if (filters.minPower !== defaultFilters.minPower) count++
+  if (filters.connector) count++
+  if (filters.availability !== defaultFilters.availability) count++
+  return count
+}
+
 export function useFilteredStations(stations: Station[] | undefined) {
   const [filters, setFilters] = useState<FilterState>(defaultFilters)
 
@@ -41,7 +51,7 @@ export function useFilteredStations(stations: Station[] | undefined) {
       if (!matchesAvailabilityFilter(station, filters.availability)) return false
       if (!stationMatchesOperator(station, filters.operator)) return false
 
-      if (filters.connector && !stationHasConnector(station.summary, filters.connector)) {
+      if (filters.connector && !stationHasConnector(station.summary, filters.connector, filters.minPower)) {
         return false
       }
 
@@ -153,7 +163,7 @@ export function FiltersPanel({
       <div className="field">
         <span>Connecteurs</span>
         <div className="connector-filters">
-          {CONNECTOR_TYPES.map((connector) => {
+          {CONNECTOR_FILTER_TYPES.map((connector) => {
             const active = filters.connector === connector
             const meta = CONNECTOR_META[connector]
 

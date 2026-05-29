@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useIrveData } from './hooks/useIrveData'
-import { useFilteredStations } from './components/FiltersPanel'
+import { countActiveFilters, useFilteredStations } from './components/FiltersPanel'
 import { IrveMap } from './components/IrveMap'
 import { StatsBar } from './components/StatsBar'
 import { FiltersPanel } from './components/FiltersPanel'
@@ -12,10 +12,14 @@ function App() {
   const { data, dataSource, loading, error, refetch } = useIrveData()
   const { filters, setFilters, filtered } = useFilteredStations(data?.stations)
   const [selected, setSelected] = useState<Station | null>(null)
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   const handleSelect = useCallback((station: Station | null) => {
     setSelected(station)
+    if (station) setFiltersOpen(false)
   }, [])
+
+  const activeFilterCount = countActiveFilters(filters)
 
   return (
     <div className="app">
@@ -28,7 +32,18 @@ function App() {
       />
 
       <main className="app__main">
-        <aside className="sidebar">
+        {filtersOpen && (
+          <button
+            type="button"
+            className="filters-backdrop"
+            aria-label="Fermer les filtres"
+            onClick={() => setFiltersOpen(false)}
+          />
+        )}
+
+        <aside className={`sidebar${filtersOpen ? ' sidebar--open' : ''}`}>
+          <div className="sidebar__handle" aria-hidden="true" />
+
           <FiltersPanel
             filters={filters}
             onChange={setFilters}
@@ -47,9 +62,28 @@ function App() {
               QualiCharge
             </a>
           </p>
+
+          <button
+            type="button"
+            className="sidebar__close-mobile"
+            onClick={() => setFiltersOpen(false)}
+          >
+            Appliquer
+          </button>
         </aside>
 
         <div className="map-shell">
+          <button
+            type="button"
+            className={`filters-toggle${activeFilterCount > 0 ? ' filters-toggle--active' : ''}`}
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((open) => !open)}
+          >
+            Filtres
+            {activeFilterCount > 0 && (
+              <span className="filters-toggle__badge">{activeFilterCount}</span>
+            )}
+          </button>
           {error && (
             <div className="map-overlay map-overlay--error">
               <p>{error}</p>
