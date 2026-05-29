@@ -1,3 +1,4 @@
+import type { IrveDataSource } from '../api/irve'
 import type { Station } from '../types/irve'
 import type { AvailabilityFilter } from '../lib/stations'
 
@@ -6,9 +7,16 @@ interface StatsBarProps {
   availability: AvailabilityFilter
   updatedAt: string | null
   loading: boolean
+  dataSource: IrveDataSource | null
 }
 
-export function StatsBar({ stations, availability, updatedAt, loading }: StatsBarProps) {
+export function StatsBar({
+  stations,
+  availability,
+  updatedAt,
+  loading,
+  dataSource,
+}: StatsBarProps) {
   const totalPdc = stations.reduce((sum, station) => sum + station.pdc_count, 0)
   const availablePdc = stations.reduce(
     (sum, station) => sum + station.dynamic_summary.available_count,
@@ -92,6 +100,14 @@ export function StatsBar({ stations, availability, updatedAt, loading }: StatsBa
       </div>
 
       <div className="stats-bar__updated">
+        {dataSource === 'fallback' && (
+          <span
+            className="stats-bar__stale"
+            title="L’API QualiCharge est indisponible. Affichage d’un snapshot figé au dernier déploiement."
+          >
+            Données non live
+          </span>
+        )}
         <span>Màj</span>
         <strong>{loading ? '…' : updatedLabel}</strong>
       </div>

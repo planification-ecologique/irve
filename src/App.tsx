@@ -9,7 +9,7 @@ import type { Station } from './types/irve'
 import './App.css'
 
 function App() {
-  const { data, loading, error, refetch } = useIrveData()
+  const { data, dataSource, loading, error, refetch } = useIrveData()
   const { filters, setFilters, filtered } = useFilteredStations(data?.stations)
   const [selected, setSelected] = useState<Station | null>(null)
 
@@ -24,6 +24,7 @@ function App() {
         availability={filters.availability}
         updatedAt={data?.updatedAt ?? null}
         loading={loading}
+        dataSource={dataSource}
       />
 
       <main className="app__main">
@@ -31,6 +32,7 @@ function App() {
           <FiltersPanel
             filters={filters}
             onChange={setFilters}
+            stations={data?.stations ?? []}
             totalCount={data?.stations.length ?? 0}
             filteredCount={filtered.length}
           />

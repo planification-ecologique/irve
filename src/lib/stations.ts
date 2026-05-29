@@ -1,4 +1,21 @@
-import type { Station } from '../types/irve'
+import type { IrvePointsResponse, Station } from '../types/irve'
+
+import exclusions from '../../station-exclusions.json'
+
+const EXCLUDED_STATION_KEYS = new Set(exclusions.stationKeys)
+
+export function isIncludedStation(station: Station): boolean {
+  return !EXCLUDED_STATION_KEYS.has(station.station_key)
+}
+
+export function sanitizeIrveResponse(data: IrvePointsResponse): IrvePointsResponse {
+  const stations = data.stations.filter(isIncludedStation)
+  return {
+    ...data,
+    stations,
+    total: stations.length,
+  }
+}
 
 export type AvailabilityFilter = 'all' | 'available' | 'full'
 

@@ -7,6 +7,7 @@ exports.irveProxy = onRequest(
     region: 'europe-west1',
     cors: true,
     maxInstances: 10,
+    invoker: 'public',
   },
   async (req, res) => {
     const path = req.path.startsWith('/api/irve')

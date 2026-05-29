@@ -7,12 +7,14 @@ import {
 } from '../lib/power'
 import { CONNECTOR_META, CONNECTOR_TYPES, stationHasConnector } from '../lib/connectors'
 import { matchesAvailabilityFilter, type AvailabilityFilter } from '../lib/stations'
+import { getOperatorOptionsWithCounts, getOperatorRequiredNote, stationMatchesOperator } from '../lib/operators'
 import { ConnectorIcon } from './ConnectorIcon'
 
 export type { AvailabilityFilter }
 
 export interface FilterState {
   search: string
+  operator: string | null
   minPower: number
   connector: ConnectorType | null
   availability: AvailabilityFilter
@@ -20,6 +22,7 @@ export interface FilterState {
 
 export const defaultFilters: FilterState = {
   search: '',
+  operator: null,
   minPower: 50,
   connector: null,
   availability: 'all',
@@ -36,6 +39,7 @@ export function useFilteredStations(stations: Station[] | undefined) {
     return stations.filter((station) => {
       if (station.summary.max_power < filters.minPower) return false
       if (!matchesAvailabilityFilter(station, filters.availability)) return false
+      if (!stationMatchesOperator(station, filters.operator)) return false
 
       if (filters.connector && !stationHasConnector(station.summary, filters.connector)) {
         return false
@@ -63,6 +67,7 @@ export function useFilteredStations(stations: Station[] | undefined) {
 interface FiltersPanelProps {
   filters: FilterState
   onChange: (filters: FilterState) => void
+  stations: Station[]
   totalCount: number
   filteredCount: number
 }
@@ -70,9 +75,15 @@ interface FiltersPanelProps {
 export function FiltersPanel({
   filters,
   onChange,
+  stations,
   totalCount,
   filteredCount,
 }: FiltersPanelProps) {
+  const operatorOptions = useMemo(
+    () => getOperatorOptionsWithCounts(stations),
+    [stations],
+  )
+
   const selectConnector = (connector: ConnectorType) => {
     onChange({
       ...filters,
@@ -97,6 +108,29 @@ export function FiltersPanel({
           value={filters.search}
           onChange={(event) => onChange({ ...filters, search: event.target.value })}
         />
+      </label>
+
+      <label className="field">
+        <span>Opérateur</span>
+        <select
+          value={filters.operator ?? ''}
+          onChange={(event) =>
+            onChange({
+              ...filters,
+              operator: event.target.value || null,
+            })
+          }
+        >
+          <option value="">Tous les opérateurs</option>
+          {operatorOptions.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label} ({option.count.toLocaleString('fr-FR')})
+            </option>
+          ))}
+        </select>
+        {filters.operator && getOperatorRequiredNote(filters.operator) && (
+          <span className="field__hint">{getOperatorRequiredNote(filters.operator)}</span>
+        )}
       </label>
 
       <div className="field">

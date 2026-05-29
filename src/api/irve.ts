@@ -1,15 +1,37 @@
 import type { IrvePointsResponse } from '../types/irve'
 
-const API_URL = import.meta.env.DEV
-  ? '/api/irve/points/'
-  : '/data/stations.json'
+const LIVE_URL = '/api/irve/points/'
+const FALLBACK_URL = '/data/stations.json'
 
-export async function fetchIrvePoints(): Promise<IrvePointsResponse> {
-  const response = await fetch(API_URL)
+export type IrveDataSource = 'live' | 'fallback'
 
-  if (!response.ok) {
-    throw new Error(`Impossible de charger les stations IRVE (${response.status})`)
+export interface IrveFetchResult {
+  data: IrvePointsResponse
+  source: IrveDataSource
+}
+
+async function fetchJson(url: string): Promise<IrvePointsResponse | null> {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) {
+      return null
+    }
+    return response.json()
+  } catch {
+    return null
+  }
+}
+
+export async function fetchIrvePoints(): Promise<IrveFetchResult> {
+  const live = await fetchJson(LIVE_URL)
+  if (live) {
+    return { data: live, source: 'live' }
   }
 
-  return response.json()
+  const fallback = await fetchJson(FALLBACK_URL)
+  if (fallback) {
+    return { data: fallback, source: 'fallback' }
+  }
+
+  throw new Error('Impossible de charger les stations IRVE (API et snapshot indisponibles)')
 }

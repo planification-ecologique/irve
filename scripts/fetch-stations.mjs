@@ -1,4 +1,4 @@
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -6,6 +6,10 @@ const API_URL = 'https://qualicharge-carto.osc-fr1.scalingo.io/api/irve/points/'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const outDir = join(root, 'public', 'data')
 const outFile = join(outDir, 'stations.json')
+const exclusions = JSON.parse(
+  readFileSync(join(root, 'station-exclusions.json'), 'utf8'),
+)
+const excludedKeys = new Set(exclusions.stationKeys)
 
 async function fetchStations() {
   console.log('Fetching IRVE data…')
@@ -16,9 +20,20 @@ async function fetchStations() {
   }
 
   const data = await response.json()
+  const before = data.stations?.length ?? 0
+  data.stations = (data.stations ?? []).filter(
+    (station) => !excludedKeys.has(station.station_key),
+  )
+  data.total = data.stations.length
+
   mkdirSync(outDir, { recursive: true })
   writeFileSync(outFile, JSON.stringify(data))
-  console.log(`Saved ${data.stations?.length ?? 0} stations → public/data/stations.json`)
+
+  const removed = before - data.stations.length
+  console.log(
+    `Saved ${data.stations.length} stations → public/data/stations.json` +
+      (removed > 0 ? ` (${removed} exclue(s))` : ''),
+  )
 }
 
 fetchStations().catch((error) => {

@@ -4,6 +4,14 @@ import type { Feature, Point } from 'geojson'
 import type { Station, StationFeatureProperties } from '../types/irve'
 import { stationsToGeoJSON } from '../lib/geojson'
 import { applyFrenchLabels, CARTO_STYLE_URL, MAP_LOCALE_FR } from '../lib/mapStyle'
+import {
+  clusterAvailOpacity,
+  clusterPowerColor,
+  clusterProperties,
+  pointAvailOpacity,
+  pointPowerColor,
+  unavailableColor,
+} from '../lib/mapLayers'
 
 const FRANCE_CENTER: [number, number] = [2.5, 46.6]
 const FRANCE_ZOOM = 5.2
@@ -107,6 +115,30 @@ export function IrveMap({ stations, selectedKey, onSelect }: IrveMapProps) {
         cluster: true,
         clusterMaxZoom: 13,
         clusterRadius: 50,
+        clusterProperties,
+      })
+
+      map.addLayer({
+        id: 'cluster-glow',
+        type: 'circle',
+        source: 'stations',
+        filter: ['all', ['has', 'point_count'], ['>', ['get', 'sum_available'], 0]],
+        paint: {
+          'circle-color': '#22d3a5',
+          'circle-radius': [
+            'step',
+            ['get', 'point_count'],
+            26,
+            10,
+            32,
+            50,
+            40,
+            200,
+            48,
+          ],
+          'circle-opacity': 0.12,
+          'circle-blur': 0.6,
+        },
       })
 
       map.addLayer({
@@ -116,30 +148,28 @@ export function IrveMap({ stations, selectedKey, onSelect }: IrveMapProps) {
         filter: ['has', 'point_count'],
         paint: {
           'circle-color': [
-            'step',
-            ['get', 'point_count'],
-            '#1e3a5f',
-            50,
-            '#1d4ed8',
-            200,
-            '#0891b2',
-            500,
-            '#059669',
+            'case',
+            ['==', ['get', 'sum_available'], 0],
+            unavailableColor,
+            clusterPowerColor,
           ],
           'circle-radius': [
             'step',
             ['get', 'point_count'],
             18,
+            10,
+            22,
             50,
-            24,
+            28,
             200,
-            30,
-            500,
-            36,
+            34,
           ],
-          'circle-stroke-width': 2,
-          'circle-stroke-color': 'rgba(255,255,255,0.25)',
-          'circle-opacity': 0.92,
+          'circle-opacity': [
+            'case',
+            ['==', ['get', 'sum_available'], 0],
+            0.45,
+            clusterAvailOpacity,
+          ],
         },
       })
 
@@ -167,20 +197,8 @@ export function IrveMap({ stations, selectedKey, onSelect }: IrveMapProps) {
           'circle-color': [
             'case',
             ['==', ['get', 'available_count'], 0],
-            '#64748b',
-            [
-              'step',
-              ['get', 'max_power'],
-              '#38bdf8',
-              100,
-              '#22d3ee',
-              150,
-              '#22d3a5',
-              180,
-              '#a3e635',
-              350,
-              '#fbbf24',
-            ],
+            unavailableColor,
+            pointPowerColor,
           ],
           'circle-radius': [
             'interpolate',
@@ -193,18 +211,11 @@ export function IrveMap({ stations, selectedKey, onSelect }: IrveMapProps) {
             15,
             10,
           ],
-          'circle-stroke-width': 2,
-          'circle-stroke-color': [
-            'case',
-            ['==', ['get', 'available_count'], 0],
-            'rgba(148, 163, 184, 0.25)',
-            'rgba(255,255,255,0.35)',
-          ],
           'circle-opacity': [
             'case',
             ['==', ['get', 'available_count'], 0],
             0.45,
-            0.95,
+            pointAvailOpacity,
           ],
         },
       })

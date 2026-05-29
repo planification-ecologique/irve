@@ -32,17 +32,18 @@ npm run build
 npm run preview
 ```
 
-Le build télécharge les données IRVE dans `public/data/stations.json` (snapshot au moment du build).
+Les données IRVE sont chargées à la volée via `/api/irve/points/` (proxy Cloud Function → QualiCharge). Rafraîchissement automatique toutes les 2 minutes.
+
+Si l’API est indisponible, repli sur `/data/stations.json` (snapshot généré au build) avec un bandeau « Données non live ».
+
+En dev, Vite proxy la même route vers QualiCharge.
 
 ## Déploiement Firebase
 
-Projet : **carto-irve**
+Projet : **carto-irve** (plan **Blaze** requis pour Cloud Functions)
 
 ```bash
 npm run deploy
 ```
 
 URL : [https://carto-irve.web.app](https://carto-irve.web.app)
-
-> Plan Spark : données servies en statique depuis le build. Relancer `npm run deploy` pour rafraîchir.
-> Cloud Function proxy (`functions/`) disponible si passage au plan Blaze → `npm run deploy:functions`.
