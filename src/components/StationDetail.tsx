@@ -1,6 +1,7 @@
 import type { Station } from '../types/irve'
 import { getPowerBadgeClass, getPowerLabel } from '../lib/power'
 import { CONNECTOR_TYPES, CONNECTOR_META, stationHasConnector } from '../lib/connectors'
+import { openNavigationApp } from '../lib/navigation'
 import { ConnectorIcon } from './ConnectorIcon'
 
 interface StationDetailProps {
@@ -30,6 +31,14 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
       </div>
 
       <h2>{station.nom_station}</h2>
+
+      <button
+        type="button"
+        className="station-detail__nav"
+        onClick={() => openNavigationApp(station.lat, station.lng, station.nom_station)}
+      >
+        Itinéraire
+      </button>
 
       <dl className="station-detail__meta">
         <div>

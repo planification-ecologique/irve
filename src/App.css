@@ -540,11 +540,31 @@
 }
 
 .station-detail h2 {
-  margin: 0 2rem 1rem 0;
+  margin: 0 2rem 0.75rem 0;
   font-size: 1.0625rem;
   font-weight: 700;
   line-height: 1.35;
   letter-spacing: -0.02em;
+}
+
+.station-detail__nav {
+  display: block;
+  width: 100%;
+  margin-bottom: 1rem;
+  padding: 0.625rem 1rem;
+  border: 1px solid rgba(34, 211, 165, 0.35);
+  border-radius: 10px;
+  background: rgba(34, 211, 165, 0.12);
+  color: var(--accent);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.station-detail__nav:hover {
+  background: rgba(34, 211, 165, 0.2);
+  border-color: rgba(34, 211, 165, 0.55);
 }
 
 .station-detail__meta {
