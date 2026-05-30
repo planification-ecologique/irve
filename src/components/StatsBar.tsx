@@ -26,11 +26,34 @@ export function StatsBar({
   useEffect(() => {
     if (dataSource !== 'live' || !lastFetchedAt) return
 
-    const interval = window.setInterval(() => {
-      setNowTick((value) => value + 1)
-    }, 60_000)
+    let intervalId: ReturnType<typeof window.setInterval> | undefined
 
-    return () => window.clearInterval(interval)
+    const stop = () => {
+      if (intervalId !== undefined) {
+        window.clearInterval(intervalId)
+        intervalId = undefined
+      }
+    }
+
+    const start = () => {
+      stop()
+      if (document.visibilityState !== 'visible') return
+      intervalId = window.setInterval(() => {
+        setNowTick((value) => value + 1)
+      }, 60_000)
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') start()
+      else stop()
+    }
+
+    start()
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      stop()
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
   }, [dataSource, lastFetchedAt])
 
   const totalPdc = stations.reduce((sum, station) => sum + station.pdc_count, 0)

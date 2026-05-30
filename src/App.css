@@ -513,6 +513,28 @@
   margin-bottom: 0.75rem;
 }
 
+.station-detail__header {
+  margin: 0 2rem 0.5rem 0;
+}
+
+.station-detail__header h2 {
+  margin: 0;
+}
+
+.station-detail__location {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.station-detail__operator {
+  margin: 0 0 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
 .power-badge {
   padding: 0.25rem 0.625rem;
   border-radius: 999px;
@@ -540,7 +562,6 @@
 }
 
 .station-detail h2 {
-  margin: 0 2rem 0.75rem 0;
   font-size: 1.0625rem;
   font-weight: 700;
   line-height: 1.35;
@@ -571,6 +592,20 @@
   display: grid;
   gap: 0.625rem;
   margin: 0 0 1rem;
+}
+
+.station-detail__meta--compact {
+  margin-top: 0;
+}
+
+.station-detail__meta-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.station-detail__warn {
+  color: #f87171;
 }
 
 .station-detail__meta div {
@@ -612,13 +647,22 @@
   color: var(--text-muted);
 }
 
-.stat-card--unavailable {
+.stat-card--unavailable,
+.stat-card--availability-none {
   border-color: rgba(248, 113, 113, 0.35);
-  background: rgba(248, 113, 113, 0.1);
 }
 
-.stat-card--unavailable .stat-card__value {
+.stat-card--unavailable .stat-card__value,
+.stat-card--availability-none .stat-card__value {
   color: #f87171;
+}
+
+.stat-card--availability-available {
+  border-color: rgba(34, 211, 165, 0.35);
+}
+
+.stat-card--availability-available .stat-card__value {
+  color: var(--accent);
 }
 
 .stat-card__value {
@@ -641,6 +685,10 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
+}
+
+.station-detail__connectors {
+  margin-bottom: 1.25rem;
 }
 
 .connector-badges {

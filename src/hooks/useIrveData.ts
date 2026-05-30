@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { fetchIrvePoints, POLL_INTERVAL_MS, type IrveDataSource } from '../api/irve'
 import { sanitizeIrveResponse } from '../lib/stations'
 import type { IrvePointsResponse } from '../types/irve'
@@ -20,8 +20,11 @@ export function useIrveData(): UseIrveDataResult {
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
 
+  const lastFetchedAtRef = useRef<number | null>(null)
+
   useEffect(() => {
     let cancelled = false
+    let intervalId: ReturnType<typeof window.setInterval> | undefined
 
     async function load(showLoading: boolean) {
       if (showLoading) {
@@ -34,7 +37,9 @@ export function useIrveData(): UseIrveDataResult {
         if (!cancelled) {
           setData(sanitizeIrveResponse(raw))
           setDataSource(source)
-          setLastFetchedAt(new Date())
+          const fetchedAt = new Date()
+          setLastFetchedAt(fetchedAt)
+          lastFetchedAtRef.current = fetchedAt.getTime()
           if (!showLoading || source === 'live') {
             setError(null)
           }
@@ -52,15 +57,42 @@ export function useIrveData(): UseIrveDataResult {
       }
     }
 
-    void load(true)
+    function stopPolling() {
+      if (intervalId !== undefined) {
+        window.clearInterval(intervalId)
+        intervalId = undefined
+      }
+    }
 
-    const interval = window.setInterval(() => {
-      void load(false)
-    }, POLL_INTERVAL_MS)
+    function startPolling() {
+      stopPolling()
+      if (document.visibilityState !== 'visible') return
+      intervalId = window.setInterval(() => {
+        void load(false)
+      }, POLL_INTERVAL_MS)
+    }
+
+    function onVisibilityChange() {
+      if (document.visibilityState === 'hidden') {
+        stopPolling()
+        return
+      }
+
+      const lastMs = lastFetchedAtRef.current
+      if (lastMs === null || Date.now() - lastMs >= POLL_INTERVAL_MS) {
+        void load(false)
+      }
+      startPolling()
+    }
+
+    void load(true)
+    startPolling()
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
       cancelled = true
-      window.clearInterval(interval)
+      stopPolling()
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [tick])
 

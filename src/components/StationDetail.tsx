@@ -1,7 +1,12 @@
 import type { Station } from '../types/irve'
-import { getPowerBadgeClass, getPowerLabel } from '../lib/power'
+import { getPowerBadgeClass } from '../lib/power'
 import { CONNECTOR_TYPES, CONNECTOR_META, stationHasConnector } from '../lib/connectors'
 import { openNavigationApp } from '../lib/navigation'
+import {
+  getAvailabilityTone,
+  isFreeAccess,
+  splitStationName,
+} from '../lib/stationDisplay'
 import { ConnectorIcon } from './ConnectorIcon'
 
 interface StationDetailProps {
@@ -12,6 +17,9 @@ interface StationDetailProps {
 export function StationDetail({ station, onClose }: StationDetailProps) {
   const { dynamic_summary: dynamic, summary } = station
   const powerClass = getPowerBadgeClass(summary.max_power)
+  const { name, location } = splitStationName(station.nom_station)
+  const availabilityTone = getAvailabilityTone(dynamic.available_count)
+  const freeAccess = isFreeAccess(station.condition_acces)
 
   return (
     <aside className="station-detail">
@@ -19,13 +27,25 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
         ×
       </button>
 
-      <div className="station-detail__badge-row">
-        <span className={`power-badge ${powerClass}`}>
-          {summary.max_power} kW · {getPowerLabel(summary.max_power)}
-        </span>
-      </div>
+      <header className="station-detail__header">
+        <h2>{name}</h2>
+        {location && <p className="station-detail__location">{location}</p>}
+      </header>
 
-      <h2>{station.nom_station}</h2>
+      <p className="station-detail__operator">{station.nom_operateur}</p>
+
+      <div className="station-detail__stats">
+        <div className={`stat-card stat-card--power ${powerClass}`}>
+          <span className="stat-card__value">{summary.max_power} kW</span>
+          <span className="stat-card__label">Puissance max</span>
+        </div>
+        <div className={`stat-card stat-card--availability stat-card--availability-${availabilityTone}`}>
+          <span className="stat-card__value">
+            {dynamic.available_count} sur {station.pdc_count}
+          </span>
+          <span className="stat-card__label">PDC disponibles</span>
+        </div>
+      </div>
 
       <button
         type="button"
@@ -34,38 +54,6 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
       >
         Itinéraire
       </button>
-
-      <dl className="station-detail__meta">
-        <div>
-          <dt>Opérateur</dt>
-          <dd>{station.nom_operateur}</dd>
-        </div>
-        <div>
-          <dt>Aménageur</dt>
-          <dd>{station.nom_amenageur}</dd>
-        </div>
-        <div>
-          <dt>Accès</dt>
-          <dd>{station.condition_acces}</dd>
-        </div>
-        <div>
-          <dt>PMR</dt>
-          <dd>{station.accessibilite_pmr}</dd>
-        </div>
-      </dl>
-
-      <div className="station-detail__stats">
-        <div className={`stat-card stat-card--power ${powerClass}`}>
-          <span className="stat-card__value">{summary.max_power}</span>
-          <span className="stat-card__label">kW max</span>
-        </div>
-        <div className={`stat-card${dynamic.available_count === 0 ? ' stat-card--unavailable' : ''}`}>
-          <span className="stat-card__value">
-            {dynamic.available_count} sur {station.pdc_count}
-          </span>
-          <span className="stat-card__label">PDC disponibles</span>
-        </div>
-      </div>
 
       <div className="station-detail__connectors">
         <span className="section-label">Connecteurs</span>
@@ -87,6 +75,25 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
           })}
         </div>
       </div>
+
+      <dl className="station-detail__meta station-detail__meta--compact">
+        <div className="station-detail__meta-pair">
+          <div>
+            <dt>Accès</dt>
+            <dd className={freeAccess ? undefined : 'station-detail__warn'}>
+              {station.condition_acces}
+            </dd>
+          </div>
+          <div>
+            <dt>PMR</dt>
+            <dd>{station.accessibilite_pmr}</dd>
+          </div>
+        </div>
+        <div>
+          <dt>Aménageur</dt>
+          <dd>{station.nom_amenageur}</dd>
+        </div>
+      </dl>
 
       {summary.pricing_headline && (
         <div className="station-detail__pricing">

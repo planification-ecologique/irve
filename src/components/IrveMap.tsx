@@ -13,6 +13,7 @@ import {
   unavailableColor,
 } from '../lib/mapLayers'
 import { getPowerBadgeClass } from '../lib/power'
+import { getAvailabilityTone } from '../lib/stationDisplay'
 
 const FRANCE_CENTER: [number, number] = [2.5, 46.6]
 const FRANCE_ZOOM = 5.2
@@ -61,8 +62,8 @@ export function IrveMap({ stations, selectedKey, onSelect }: IrveMapProps) {
       hideHoverPopup()
       hoveredKeyRef.current = props.station_key
 
-      const availClass =
-        props.available_count > 0 ? 'map-popup__avail' : 'map-popup__none'
+      const availTone = getAvailabilityTone(props.available_count)
+      const availClass = availTone === 'available' ? 'map-popup__avail' : 'map-popup__none'
       const availHtml = `<span class="${availClass}">${props.available_count} sur ${props.pdc_count} PDC disponibles</span>`
       const powerClass = getPowerBadgeClass(props.max_power)
 
