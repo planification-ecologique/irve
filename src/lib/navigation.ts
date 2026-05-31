@@ -91,6 +91,22 @@ export function openNavigationApp(
   window.location.href = url
 }
 
+export function getNavigationProviderLabel(provider: NavigationProvider | null): string {
+  if (!provider) return 'App'
+  return NAVIGATION_PROVIDER_OPTIONS.find((option) => option.id === provider)?.label ?? 'App'
+}
+
+export function getNavigationProviderShortLabel(provider: NavigationProvider): string {
+  switch (provider) {
+    case 'google-maps':
+      return 'Google'
+    case 'cartes-app':
+      return 'Cartes'
+    default:
+      return 'Défaut'
+  }
+}
+
 export const NAVIGATION_PROVIDER_OPTIONS: {
   id: NavigationProvider
   label: string

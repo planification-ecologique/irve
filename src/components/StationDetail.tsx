@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Station } from '../types/irve'
 import { getPowerBadgeClass } from '../lib/power'
 import { CONNECTOR_TYPES, CONNECTOR_META, stationHasConnector } from '../lib/connectors'
 import {
+  getNavigationProviderLabel,
   getStoredNavigationProvider,
   openNavigationApp,
   persistNavigationProvider,
@@ -10,7 +11,15 @@ import {
 } from '../lib/navigation'
 import { NavigationPicker } from './NavigationPicker'
 import {
+  CheckIcon,
+  ChevronDownIcon,
+  CopyIcon,
+  NavigationProviderIcon,
+  RouteIcon,
+} from './NavigationIcons'
+import {
   getAvailabilityTone,
+  getStationAddress,
   isFreeAccess,
   splitStationName,
 } from '../lib/stationDisplay'
@@ -29,24 +38,60 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
   const freeAccess = isFreeAccess(station.condition_acces)
   const [navPickerOpen, setNavPickerOpen] = useState(false)
   const [savedProvider, setSavedProvider] = useState(getStoredNavigationProvider)
+  const [copied, setCopied] = useState(false)
+  const navAppRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!navPickerOpen) return
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!navAppRef.current?.contains(event.target as Node)) {
+        setNavPickerOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [navPickerOpen])
+
+  useEffect(() => {
+    if (!copied) return
+    const timer = window.setTimeout(() => setCopied(false), 2000)
+    return () => window.clearTimeout(timer)
+  }, [copied])
 
   const openItinerary = (provider?: NavigationProvider) => {
     openNavigationApp(station.lat, station.lng, station.nom_station, provider)
   }
 
   const handleItineraryClick = () => {
-    if (savedProvider) {
-      openItinerary(savedProvider)
-      return
-    }
-    setNavPickerOpen(true)
+    openItinerary(savedProvider ?? 'default')
   }
 
   const handleNavProviderSelect = (provider: NavigationProvider) => {
     persistNavigationProvider(provider)
     setSavedProvider(provider)
     setNavPickerOpen(false)
-    openItinerary(provider)
+  }
+
+  const handleCopyAddress = async () => {
+    const address = getStationAddress(station.nom_station)
+
+    try {
+      await navigator.clipboard.writeText(address)
+      setCopied(true)
+    } catch {
+      // fallback si clipboard API indisponible
+      const textarea = document.createElement('textarea')
+      textarea.value = address
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+      setCopied(true)
+    }
   }
 
   return (
@@ -76,31 +121,46 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
       </div>
 
       <div className="station-detail__nav-block">
-        {navPickerOpen ? (
-          <NavigationPicker
-            onSelect={handleNavProviderSelect}
-            onCancel={() => setNavPickerOpen(false)}
-          />
-        ) : (
-          <>
+        <div className="station-detail__nav-row">
+          <button
+            type="button"
+            className="station-detail__nav-btn station-detail__nav-btn--route"
+            onClick={handleItineraryClick}
+            aria-label="Itinéraire"
+            title="Itinéraire"
+          >
+            <RouteIcon />
+            <span>Itinéraire</span>
+          </button>
+
+          <div className="station-detail__nav-app" ref={navAppRef}>
             <button
               type="button"
-              className="station-detail__nav"
-              onClick={handleItineraryClick}
+              className="station-detail__nav-btn station-detail__nav-btn--app"
+              aria-expanded={navPickerOpen}
+              aria-haspopup="listbox"
+              aria-label={`Application de navigation : ${getNavigationProviderLabel(savedProvider)}`}
+              title={getNavigationProviderLabel(savedProvider)}
+              onClick={() => setNavPickerOpen((open) => !open)}
             >
-              Itinéraire
+              <NavigationProviderIcon provider={savedProvider ?? 'default'} />
+              <ChevronDownIcon />
             </button>
-            {savedProvider && (
-              <button
-                type="button"
-                className="station-detail__nav-change"
-                onClick={() => setNavPickerOpen(true)}
-              >
-                Changer d’app
-              </button>
+            {navPickerOpen && (
+              <NavigationPicker selected={savedProvider} onSelect={handleNavProviderSelect} />
             )}
-          </>
-        )}
+          </div>
+
+          <button
+            type="button"
+            className={`station-detail__nav-btn station-detail__nav-btn--copy${copied ? ' station-detail__nav-btn--copied' : ''}`}
+            onClick={handleCopyAddress}
+            aria-label={copied ? 'Adresse copiée' : "Copier l'adresse"}
+            title={copied ? 'Adresse copiée' : "Copier l'adresse"}
+          >
+            {copied ? <CheckIcon /> : <CopyIcon />}
+          </button>
+        </div>
       </div>
 
       <div className="station-detail__connectors">

@@ -13,6 +13,12 @@ export function splitStationName(nomStation: string): { name: string; location: 
   }
 }
 
+/** Adresse lisible (sans préfixe opérateur) pour copie / partage. */
+export function getStationAddress(nomStation: string): string {
+  const separator = nomStation.indexOf(' - ')
+  return separator === -1 ? nomStation.trim() : nomStation.slice(separator + 3).trim()
+}
+
 export function isFreeAccess(conditionAcces: string): boolean {
   return conditionAcces.trim().toLowerCase() === 'accès libre'
 }

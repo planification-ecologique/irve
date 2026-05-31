@@ -1,34 +1,38 @@
 import type { NavigationProvider } from '../lib/navigation'
 import { NAVIGATION_PROVIDER_OPTIONS } from '../lib/navigation'
+import { NavigationProviderIcon } from './NavigationIcons'
 
 interface NavigationPickerProps {
+  selected: NavigationProvider | null
   onSelect: (provider: NavigationProvider) => void
-  onCancel: () => void
 }
 
-export function NavigationPicker({ onSelect, onCancel }: NavigationPickerProps) {
+export function NavigationPicker({ selected, onSelect }: NavigationPickerProps) {
   return (
-    <div className="nav-picker" role="dialog" aria-labelledby="nav-picker-title">
-      <p id="nav-picker-title" className="nav-picker__title">
-        Ouvrir l’itinéraire avec
-      </p>
+    <div className="nav-picker" role="listbox" aria-label="Application de navigation">
       <ul className="nav-picker__list">
         {NAVIGATION_PROVIDER_OPTIONS.map((option) => (
           <li key={option.id}>
             <button
               type="button"
-              className="nav-picker__option"
+              role="option"
+              aria-selected={selected === option.id}
+              aria-label={option.label}
+              title={option.description}
+              className={`nav-picker__option${selected === option.id ? ' nav-picker__option--selected' : ''}`}
               onClick={() => onSelect(option.id)}
             >
-              <span className="nav-picker__option-label">{option.label}</span>
-              <span className="nav-picker__option-desc">{option.description}</span>
+              <span className="nav-picker__option-icon">
+                <NavigationProviderIcon provider={option.id} size={22} />
+              </span>
+              <span className="nav-picker__option-copy">
+                <span className="nav-picker__option-label">{option.label}</span>
+                <span className="nav-picker__option-desc">{option.description}</span>
+              </span>
             </button>
           </li>
         ))}
       </ul>
-      <button type="button" className="nav-picker__cancel" onClick={onCancel}>
-        Annuler
-      </button>
     </div>
   )
 }
