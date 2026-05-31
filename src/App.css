@@ -388,9 +388,11 @@
   transition: all 0.15s;
 }
 
-.connector-filter:hover {
-  border-color: rgba(148, 163, 184, 0.35);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .connector-filter:hover {
+    border-color: rgba(148, 163, 184, 0.35);
+    color: var(--text);
+  }
 }
 
 .connector-filter--active {
