@@ -1,7 +1,14 @@
+import { useState } from 'react'
 import type { Station } from '../types/irve'
 import { getPowerBadgeClass } from '../lib/power'
 import { CONNECTOR_TYPES, CONNECTOR_META, stationHasConnector } from '../lib/connectors'
-import { openNavigationApp } from '../lib/navigation'
+import {
+  getStoredNavigationProvider,
+  openNavigationApp,
+  persistNavigationProvider,
+  type NavigationProvider,
+} from '../lib/navigation'
+import { NavigationPicker } from './NavigationPicker'
 import {
   getAvailabilityTone,
   isFreeAccess,
@@ -20,6 +27,27 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
   const { name, location } = splitStationName(station.nom_station)
   const availabilityTone = getAvailabilityTone(dynamic.available_count)
   const freeAccess = isFreeAccess(station.condition_acces)
+  const [navPickerOpen, setNavPickerOpen] = useState(false)
+  const [savedProvider, setSavedProvider] = useState(getStoredNavigationProvider)
+
+  const openItinerary = (provider?: NavigationProvider) => {
+    openNavigationApp(station.lat, station.lng, station.nom_station, provider)
+  }
+
+  const handleItineraryClick = () => {
+    if (savedProvider) {
+      openItinerary(savedProvider)
+      return
+    }
+    setNavPickerOpen(true)
+  }
+
+  const handleNavProviderSelect = (provider: NavigationProvider) => {
+    persistNavigationProvider(provider)
+    setSavedProvider(provider)
+    setNavPickerOpen(false)
+    openItinerary(provider)
+  }
 
   return (
     <aside className="station-detail">
@@ -47,13 +75,33 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
         </div>
       </div>
 
-      <button
-        type="button"
-        className="station-detail__nav"
-        onClick={() => openNavigationApp(station.lat, station.lng, station.nom_station)}
-      >
-        Itinéraire
-      </button>
+      <div className="station-detail__nav-block">
+        {navPickerOpen ? (
+          <NavigationPicker
+            onSelect={handleNavProviderSelect}
+            onCancel={() => setNavPickerOpen(false)}
+          />
+        ) : (
+          <>
+            <button
+              type="button"
+              className="station-detail__nav"
+              onClick={handleItineraryClick}
+            >
+              Itinéraire
+            </button>
+            {savedProvider && (
+              <button
+                type="button"
+                className="station-detail__nav-change"
+                onClick={() => setNavPickerOpen(true)}
+              >
+                Changer d’app
+              </button>
+            )}
+          </>
+        )}
+      </div>
 
       <div className="station-detail__connectors">
         <span className="section-label">Connecteurs</span>
