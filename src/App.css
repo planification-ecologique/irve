@@ -3,8 +3,8 @@
   flex-direction: column;
   height: 100%;
   background:
-    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(34, 211, 165, 0.08), transparent),
-    radial-gradient(ellipse 60% 40% at 90% 100%, rgba(56, 189, 248, 0.06), transparent),
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(13, 148, 136, 0.06), transparent),
+    radial-gradient(ellipse 60% 40% at 90% 100%, rgba(56, 189, 248, 0.05), transparent),
     var(--bg);
 }
 
@@ -24,7 +24,7 @@
   gap: 1.5rem;
   padding: 0.875rem 1.25rem;
   border-bottom: 1px solid var(--border);
-  background: rgba(11, 15, 23, 0.85);
+  background: var(--bar-bg);
   backdrop-filter: blur(16px);
   z-index: 10;
 }
@@ -92,7 +92,7 @@
 }
 
 .metric__value--muted {
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .metric__label {
@@ -100,6 +100,37 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-muted);
+}
+
+.stats-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--input-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.theme-toggle:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.theme-toggle__icon {
+  display: grid;
+  place-items: center;
 }
 
 .stats-bar__updated {
@@ -209,7 +240,7 @@
   padding: 0.625rem 0.875rem;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--input-bg);
   color: var(--text);
   outline: none;
   transition: border-color 0.15s;
@@ -320,13 +351,13 @@
 }
 
 .chip--avail-out {
-  color: #94a3b8;
+  color: var(--text-muted);
   border-color: rgba(148, 163, 184, 0.45);
 }
 
 .chip--avail-out.chip--active {
   background: rgba(100, 116, 139, 0.25);
-  color: #cbd5e1;
+  color: var(--text);
 }
 
 .chip-with-info {
@@ -345,7 +376,7 @@
   border-radius: 50%;
   border: 1px solid rgba(148, 163, 184, 0.55);
   background: transparent;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 0.625rem;
   font-weight: 700;
   font-style: italic;
@@ -356,9 +387,9 @@
 
 .chip__info:hover,
 .chip__info--open {
-  border-color: #cbd5e1;
-  color: #e2e8f0;
-  background: rgba(148, 163, 184, 0.15);
+  border-color: var(--text-muted);
+  color: var(--text);
+  background: var(--subtle-fill);
 }
 
 .connector-filters {
@@ -379,7 +410,7 @@
   padding: 0.5rem 0.375rem;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--input-bg);
   color: var(--text-muted);
   font-size: 0.625rem;
   font-weight: 600;
@@ -440,7 +471,7 @@
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  background: rgba(11, 15, 23, 0.7);
+  background: var(--overlay-bg);
   backdrop-filter: blur(8px);
 }
 
@@ -483,7 +514,7 @@
   padding: 1.25rem;
   border: 1px solid var(--border);
   border-radius: 16px;
-  background: rgba(15, 23, 42, 0.92);
+  background: var(--panel-bg);
   backdrop-filter: blur(24px);
   box-shadow: var(--shadow);
 }
@@ -496,7 +527,7 @@
   height: 32px;
   border: none;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--panel-close-bg);
   color: var(--text-muted);
   font-size: 1.25rem;
   line-height: 1;
@@ -504,7 +535,7 @@
 }
 
 .station-detail__close:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--panel-close-hover);
   color: var(--text);
 }
 
@@ -637,7 +668,7 @@
 .stat-card {
   padding: 0.75rem;
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.22);
+  background: var(--stat-card-bg);
   border: 1px solid var(--border);
 }
 
@@ -706,7 +737,7 @@
   padding: 0.3rem 0.5rem;
   border-radius: 8px;
   font-size: 0.6875rem;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--subtle-fill);
   color: var(--text-muted);
   border: 1px solid transparent;
   opacity: 0.45;
@@ -736,14 +767,14 @@
 .irve-popup .maplibregl-popup-content {
   padding: 0.75rem 1rem;
   border-radius: 12px;
-  background: rgba(15, 23, 42, 0.95);
+  background: var(--panel-bg);
   border: 1px solid var(--border);
   color: var(--text);
   box-shadow: var(--shadow);
 }
 
 .irve-popup .maplibregl-popup-tip {
-  border-top-color: rgba(15, 23, 42, 0.95);
+  border-top-color: var(--popup-tip);
 }
 
 .irve-popup--hover .maplibregl-popup-content {
@@ -785,7 +816,7 @@
   font-size: 0.6875rem;
   padding: 0.125rem 0.375rem;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--subtle-fill);
 }
 
 .map-popup__power.power-badge--p50 { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
@@ -862,7 +893,7 @@
     border-right: none;
     border-top: 1px solid var(--border);
     border-radius: 16px 16px 0 0;
-    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.45);
+    box-shadow: var(--sidebar-mobile-shadow);
     transform: translateY(calc(100% + 1rem));
     transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
     overflow-y: auto;
@@ -878,7 +909,7 @@
     height: 4px;
     margin: 0 auto 0.75rem;
     border-radius: 999px;
-    background: rgba(148, 163, 184, 0.45);
+    background: var(--handle-bg);
   }
 
   .sidebar__close-mobile {
@@ -906,7 +937,7 @@
     z-index: 35;
     border: none;
     padding: 0;
-    background: rgba(11, 15, 23, 0.55);
+    background: var(--mobile-backdrop);
     backdrop-filter: blur(4px);
     cursor: pointer;
   }
@@ -922,7 +953,7 @@
     padding: 0.625rem 0.875rem;
     border: 1px solid var(--border);
     border-radius: 12px;
-    background: rgba(15, 23, 42, 0.92);
+    background: var(--panel-bg);
     backdrop-filter: blur(16px);
     color: var(--text);
     font-size: 0.8125rem;
@@ -943,7 +974,7 @@
     padding: 0 0.25rem;
     border-radius: 999px;
     background: var(--accent);
-    color: #0b0f17;
+    color: var(--on-accent);
     font-size: 0.6875rem;
     font-weight: 700;
     line-height: 1;
@@ -979,6 +1010,10 @@
 
   .stats-bar__updated {
     display: none;
+  }
+
+  .stats-bar__actions {
+    margin-left: auto;
   }
 
   .stats-bar__logo {

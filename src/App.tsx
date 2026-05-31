@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useIrveData } from './hooks/useIrveData'
+import { useTheme } from './hooks/useTheme'
 import { countActiveFilters, useFilteredStations } from './components/FiltersPanel'
 import { IrveMap } from './components/IrveMap'
 import { StatsBar } from './components/StatsBar'
@@ -9,6 +10,7 @@ import type { Station } from './types/irve'
 import './App.css'
 
 function App() {
+  const { theme, toggleTheme } = useTheme()
   const { data, dataSource, lastFetchedAt, loading, error, refetch } = useIrveData()
   const { filters, setFilters, filtered } = useFilteredStations(data?.stations)
   const [selected, setSelected] = useState<Station | null>(null)
@@ -30,6 +32,8 @@ function App() {
         lastFetchedAt={lastFetchedAt}
         loading={loading}
         dataSource={dataSource}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
       <main className="app__main">
@@ -106,6 +110,7 @@ function App() {
               stations={filtered}
               selectedKey={selected?.station_key ?? null}
               onSelect={handleSelect}
+              theme={theme}
             />
           )}
 

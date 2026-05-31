@@ -1,4 +1,44 @@
 :root {
+  color-scheme: light;
+
+  --bg: #f1f5f9;
+  --surface: rgba(255, 255, 255, 0.82);
+  --surface-solid: #ffffff;
+  --border: rgba(15, 23, 42, 0.1);
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --accent: #0d9488;
+  --accent-dim: rgba(13, 148, 136, 0.12);
+  --danger: #dc2626;
+  --shadow: 0 24px 80px rgba(15, 23, 42, 0.1);
+  --bar-bg: rgba(255, 255, 255, 0.92);
+  --input-bg: rgba(15, 23, 42, 0.04);
+  --overlay-bg: rgba(241, 245, 249, 0.88);
+  --panel-bg: rgba(255, 255, 255, 0.96);
+  --panel-close-bg: rgba(15, 23, 42, 0.06);
+  --panel-close-hover: rgba(15, 23, 42, 0.1);
+  --stat-card-bg: rgba(15, 23, 42, 0.03);
+  --subtle-fill: rgba(15, 23, 42, 0.05);
+  --popup-tip: rgba(255, 255, 255, 0.96);
+  --mobile-backdrop: rgba(15, 23, 42, 0.35);
+  --sidebar-mobile-shadow: 0 -12px 40px rgba(15, 23, 42, 0.12);
+  --on-accent: #ffffff;
+  --handle-bg: rgba(100, 116, 139, 0.35);
+
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
   --bg: #0b0f17;
   --surface: rgba(15, 23, 42, 0.72);
   --surface-solid: #111827;
@@ -9,15 +49,19 @@
   --accent-dim: rgba(34, 211, 165, 0.15);
   --danger: #f87171;
   --shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
-  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --bar-bg: rgba(11, 15, 23, 0.85);
+  --input-bg: rgba(0, 0, 0, 0.25);
+  --overlay-bg: rgba(11, 15, 23, 0.7);
+  --panel-bg: rgba(15, 23, 42, 0.92);
+  --panel-close-bg: rgba(255, 255, 255, 0.06);
+  --panel-close-hover: rgba(255, 255, 255, 0.1);
+  --stat-card-bg: rgba(0, 0, 0, 0.22);
+  --subtle-fill: rgba(255, 255, 255, 0.06);
+  --popup-tip: rgba(15, 23, 42, 0.95);
+  --mobile-backdrop: rgba(11, 15, 23, 0.55);
+  --sidebar-mobile-shadow: 0 -12px 40px rgba(0, 0, 0, 0.45);
+  --on-accent: #0b0f17;
+  --handle-bg: rgba(148, 163, 184, 0.45);
 }
 
 *,

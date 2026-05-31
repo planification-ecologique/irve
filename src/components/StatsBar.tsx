@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { POLL_INTERVAL_MINUTES, type IrveDataSource } from '../api/irve'
 import { formatRelativeMinutes } from '../lib/time'
+import type { Theme } from '../lib/theme'
 import type { Station } from '../types/irve'
 import type { AvailabilityFilter } from '../lib/stations'
+import { ThemeToggle } from './ThemeToggle'
 
 interface StatsBarProps {
   stations: Station[]
@@ -11,6 +13,8 @@ interface StatsBarProps {
   lastFetchedAt: Date | null
   loading: boolean
   dataSource: IrveDataSource | null
+  theme: Theme
+  onToggleTheme: () => void
 }
 
 export function StatsBar({
@@ -20,6 +24,8 @@ export function StatsBar({
   lastFetchedAt,
   loading,
   dataSource,
+  theme,
+  onToggleTheme,
 }: StatsBarProps) {
   const [, setNowTick] = useState(0)
 
@@ -162,32 +168,36 @@ export function StatsBar({
         </div>
       </div>
 
-      <div className="stats-bar__updated">
-        {dataSource === 'live' ? (
-          <>
-            <span
-              className="stats-bar__live"
-              title={`Rafraîchissement automatique toutes les ${POLL_INTERVAL_MINUTES} minutes`}
-            >
-              <span className="stats-bar__live-dot" aria-hidden="true" />
-              Live
-            </span>
-            <strong>maj {liveLabel}</strong>
-          </>
-        ) : (
-          <>
-            {dataSource === 'fallback' && (
+      <div className="stats-bar__actions">
+        <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+
+        <div className="stats-bar__updated">
+          {dataSource === 'live' ? (
+            <>
               <span
-                className="stats-bar__stale"
-                title="L’API QualiCharge est indisponible. Affichage d’un snapshot figé au dernier déploiement."
+                className="stats-bar__live"
+                title={`Rafraîchissement automatique toutes les ${POLL_INTERVAL_MINUTES} minutes`}
               >
-                Données non live
+                <span className="stats-bar__live-dot" aria-hidden="true" />
+                Live
               </span>
-            )}
-            <span>Màj</span>
-            <strong>{loading ? '…' : snapshotLabel}</strong>
-          </>
-        )}
+              <strong>maj {liveLabel}</strong>
+            </>
+          ) : (
+            <>
+              {dataSource === 'fallback' && (
+                <span
+                  className="stats-bar__stale"
+                  title="L’API QualiCharge est indisponible. Affichage d’un snapshot figé au dernier déploiement."
+                >
+                  Données non live
+                </span>
+              )}
+              <span>Màj</span>
+              <strong>{loading ? '…' : snapshotLabel}</strong>
+            </>
+          )}
+        </div>
       </div>
     </header>
   )

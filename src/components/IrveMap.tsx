@@ -3,7 +3,8 @@ import maplibregl, { type GeoJSONSource, type Map, type MapMouseEvent } from 'ma
 import type { Feature, Point } from 'geojson'
 import type { Station, StationFeatureProperties } from '../types/irve'
 import { stationsToGeoJSON } from '../lib/geojson'
-import { applyFrenchLabels, CARTO_STYLE_URL, MAP_LOCALE_FR } from '../lib/mapStyle'
+import { applyFrenchLabels, getCartoStyleUrl, MAP_LOCALE_FR, preserveStationStyle } from '../lib/mapStyle'
+import type { Theme } from '../lib/theme'
 import {
   clusterAvailOpacity,
   clusterPowerColor,
@@ -22,6 +23,177 @@ interface IrveMapProps {
   stations: Station[]
   selectedKey: string | null
   onSelect: (station: Station | null) => void
+  theme: Theme
+}
+
+function addStationLayers(map: Map, stations: Station[]) {
+  if (map.getSource('stations')) return
+
+  map.addSource('stations', {
+    type: 'geojson',
+    data: stationsToGeoJSON(stations),
+    cluster: true,
+    clusterMaxZoom: 13,
+    clusterRadius: 50,
+    clusterProperties,
+  })
+
+  map.addLayer({
+    id: 'cluster-glow',
+    type: 'circle',
+    source: 'stations',
+    filter: ['all', ['has', 'point_count'], ['>', ['get', 'sum_available'], 0]],
+    paint: {
+      'circle-color': '#22d3a5',
+      'circle-radius': [
+        'step',
+        ['get', 'point_count'],
+        26,
+        10,
+        32,
+        50,
+        40,
+        200,
+        48,
+      ],
+      'circle-opacity': 0.12,
+      'circle-blur': 0.6,
+    },
+  })
+
+  map.addLayer({
+    id: 'clusters',
+    type: 'circle',
+    source: 'stations',
+    filter: ['has', 'point_count'],
+    paint: {
+      'circle-color': [
+        'case',
+        ['==', ['get', 'sum_available'], 0],
+        unavailableColor,
+        clusterPowerColor,
+      ],
+      'circle-radius': [
+        'step',
+        ['get', 'point_count'],
+        18,
+        10,
+        22,
+        50,
+        28,
+        200,
+        34,
+      ],
+      'circle-opacity': [
+        'case',
+        ['==', ['get', 'sum_available'], 0],
+        0.45,
+        clusterAvailOpacity,
+      ],
+    },
+  })
+
+  map.addLayer({
+    id: 'cluster-count',
+    type: 'symbol',
+    source: 'stations',
+    filter: ['has', 'point_count'],
+    layout: {
+      'text-field': ['get', 'point_count_abbreviated'],
+      'text-font': ['Open Sans Bold'],
+      'text-size': 13,
+    },
+    paint: {
+      'text-color': '#ffffff',
+    },
+  })
+
+  map.addLayer({
+    id: 'unclustered-point',
+    type: 'circle',
+    source: 'stations',
+    filter: ['!', ['has', 'point_count']],
+    paint: {
+      'circle-color': [
+        'case',
+        ['==', ['get', 'available_count'], 0],
+        unavailableColor,
+        pointPowerColor,
+      ],
+      'circle-radius': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        8,
+        4,
+        12,
+        7,
+        15,
+        10,
+      ],
+      'circle-opacity': [
+        'case',
+        ['==', ['get', 'available_count'], 0],
+        0.45,
+        pointAvailOpacity,
+      ],
+    },
+  })
+
+  map.addLayer({
+    id: 'unclustered-point-glow',
+    type: 'circle',
+    source: 'stations',
+    filter: [
+      'all',
+      ['!', ['has', 'point_count']],
+      ['>', ['get', 'available_count'], 0],
+    ],
+    paint: {
+      'circle-color': '#22d3a5',
+      'circle-radius': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        8,
+        8,
+        12,
+        12,
+        15,
+        16,
+      ],
+      'circle-opacity': 0.15,
+      'circle-blur': 0.6,
+    },
+  })
+}
+
+function setupMapStyle(map: Map, stations: Station[]) {
+  applyFrenchLabels(map)
+
+  const source = map.getSource('stations') as GeoJSONSource | undefined
+  if (source) {
+    source.setData(stationsToGeoJSON(stations))
+    return
+  }
+
+  addStationLayers(map, stations)
+}
+
+type StyleLoadListener = () => void
+
+function onStyleLoad(map: Map, listener: StyleLoadListener): () => void {
+  map.on('style.load' as 'load', listener as () => void)
+  return () => map.off('style.load' as 'load', listener as () => void)
+}
+
+function onceStyleLoad(map: Map, listener: StyleLoadListener): () => void {
+  const run: StyleLoadListener = () => {
+    map.off('style.load' as 'load', run as () => void)
+    listener()
+  }
+  map.on('style.load' as 'load', run as () => void)
+  return () => map.off('style.load' as 'load', run as () => void)
 }
 
 function escapeHtml(value: string): string {
@@ -32,9 +204,10 @@ function escapeHtml(value: string): string {
     .replaceAll('"', '&quot;')
 }
 
-export function IrveMap({ stations, selectedKey, onSelect }: IrveMapProps) {
+export function IrveMap({ stations, selectedKey, onSelect, theme }: IrveMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<Map | null>(null)
+  const themeRef = useRef(theme)
   const stationsRef = useRef(stations)
   const selectedKeyRef = useRef(selectedKey)
   const popupRef = useRef<maplibregl.Popup | null>(null)
@@ -96,7 +269,7 @@ export function IrveMap({ stations, selectedKey, onSelect }: IrveMapProps) {
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: CARTO_STYLE_URL,
+      style: getCartoStyleUrl(themeRef.current),
       center: FRANCE_CENTER,
       zoom: FRANCE_ZOOM,
       pitch: 0,
@@ -116,147 +289,10 @@ export function IrveMap({ stations, selectedKey, onSelect }: IrveMapProps) {
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right')
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left')
 
-    map.on('load', () => {
-      applyFrenchLabels(map)
-
-      map.addSource('stations', {
-        type: 'geojson',
-        data: stationsToGeoJSON(stationsRef.current),
-        cluster: true,
-        clusterMaxZoom: 13,
-        clusterRadius: 50,
-        clusterProperties,
-      })
-
-      map.addLayer({
-        id: 'cluster-glow',
-        type: 'circle',
-        source: 'stations',
-        filter: ['all', ['has', 'point_count'], ['>', ['get', 'sum_available'], 0]],
-        paint: {
-          'circle-color': '#22d3a5',
-          'circle-radius': [
-            'step',
-            ['get', 'point_count'],
-            26,
-            10,
-            32,
-            50,
-            40,
-            200,
-            48,
-          ],
-          'circle-opacity': 0.12,
-          'circle-blur': 0.6,
-        },
-      })
-
-      map.addLayer({
-        id: 'clusters',
-        type: 'circle',
-        source: 'stations',
-        filter: ['has', 'point_count'],
-        paint: {
-          'circle-color': [
-            'case',
-            ['==', ['get', 'sum_available'], 0],
-            unavailableColor,
-            clusterPowerColor,
-          ],
-          'circle-radius': [
-            'step',
-            ['get', 'point_count'],
-            18,
-            10,
-            22,
-            50,
-            28,
-            200,
-            34,
-          ],
-          'circle-opacity': [
-            'case',
-            ['==', ['get', 'sum_available'], 0],
-            0.45,
-            clusterAvailOpacity,
-          ],
-        },
-      })
-
-      map.addLayer({
-        id: 'cluster-count',
-        type: 'symbol',
-        source: 'stations',
-        filter: ['has', 'point_count'],
-        layout: {
-          'text-field': ['get', 'point_count_abbreviated'],
-          'text-font': ['Open Sans Bold'],
-          'text-size': 13,
-        },
-        paint: {
-          'text-color': '#ffffff',
-        },
-      })
-
-      map.addLayer({
-        id: 'unclustered-point',
-        type: 'circle',
-        source: 'stations',
-        filter: ['!', ['has', 'point_count']],
-        paint: {
-          'circle-color': [
-            'case',
-            ['==', ['get', 'available_count'], 0],
-            unavailableColor,
-            pointPowerColor,
-          ],
-          'circle-radius': [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            8,
-            4,
-            12,
-            7,
-            15,
-            10,
-          ],
-          'circle-opacity': [
-            'case',
-            ['==', ['get', 'available_count'], 0],
-            0.45,
-            pointAvailOpacity,
-          ],
-        },
-      })
-
-      map.addLayer({
-        id: 'unclustered-point-glow',
-        type: 'circle',
-        source: 'stations',
-        filter: [
-          'all',
-          ['!', ['has', 'point_count']],
-          ['>', ['get', 'available_count'], 0],
-        ],
-        paint: {
-          'circle-color': '#22d3a5',
-          'circle-radius': [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            8,
-            8,
-            12,
-            12,
-            15,
-            16,
-          ],
-          'circle-opacity': 0.15,
-          'circle-blur': 0.6,
-        },
-      })
-    })
+    const syncStationLayers = () => {
+      setupMapStyle(map, stationsRef.current)
+    }
+    const detachStyleLoad = onStyleLoad(map, syncStationLayers)
 
     map.on('click', 'clusters', (event: MapMouseEvent) => {
       hideHoverPopup()
@@ -339,6 +375,7 @@ export function IrveMap({ stations, selectedKey, onSelect }: IrveMapProps) {
     mapRef.current = map
 
     return () => {
+      detachStyleLoad()
       hideHoverPopup()
       map.remove()
       mapRef.current = null
@@ -347,22 +384,30 @@ export function IrveMap({ stations, selectedKey, onSelect }: IrveMapProps) {
 
   useEffect(() => {
     const map = mapRef.current
+    if (!map || themeRef.current === theme) return
+
+    themeRef.current = theme
+    hideHoverPopup()
+    map.setStyle(getCartoStyleUrl(theme), {
+      diff: false,
+      transformStyle: preserveStationStyle,
+    })
+  }, [theme, hideHoverPopup])
+
+  useEffect(() => {
+    const map = mapRef.current
     if (!map) return
 
-    const updateData = () => {
-      const source = map.getSource('stations') as GeoJSONSource | undefined
-      source?.setData(stationsToGeoJSON(stations))
-    }
-
-    if (map.isStyleLoaded()) {
-      updateData()
+    const source = map.getSource('stations') as GeoJSONSource | undefined
+    if (source) {
+      source.setData(stationsToGeoJSON(stations))
       return
     }
 
-    map.once('load', updateData)
-    return () => {
-      map.off('load', updateData)
-    }
+    return onceStyleLoad(map, () => {
+      const loadedSource = map.getSource('stations') as GeoJSONSource | undefined
+      loadedSource?.setData(stationsToGeoJSON(stations))
+    })
   }, [stations])
 
   useEffect(() => {

@@ -1,7 +1,43 @@
 import type { Map, StyleSpecification } from 'maplibre-gl'
+import type { Theme } from './theme'
 
 export const CARTO_STYLE_URL =
+  'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
+
+export const CARTO_STYLE_URL_DARK =
   'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
+
+export function getCartoStyleUrl(theme: Theme): string {
+  return theme === 'dark' ? CARTO_STYLE_URL_DARK : CARTO_STYLE_URL
+}
+
+const STATION_LAYER_IDS = new Set([
+  'cluster-glow',
+  'clusters',
+  'cluster-count',
+  'unclustered-point',
+  'unclustered-point-glow',
+])
+
+/** Conserve source + calques stations lors d'un swap de fond de carte. */
+export function preserveStationStyle(
+  previousStyle: StyleSpecification | undefined,
+  nextStyle: StyleSpecification,
+): StyleSpecification {
+  const stationsSource = previousStyle?.sources?.stations
+  if (!stationsSource) return nextStyle
+
+  const stationLayers = previousStyle.layers.filter((layer) => STATION_LAYER_IDS.has(layer.id))
+
+  return {
+    ...nextStyle,
+    sources: {
+      ...nextStyle.sources,
+      stations: stationsSource,
+    },
+    layers: [...nextStyle.layers, ...stationLayers],
+  }
+}
 
 /** Priorité labels français, repli sur nom local. */
 export const FRENCH_NAME_FIELD = [
