@@ -18,6 +18,32 @@ export function formatStationCoordinates(lat: number, lng: number): string {
   return `${lat},${lng}`
 }
 
+/** Adresse postale à partir du détail QualiCharge, si disponible. */
+export function formatStationAddress(detail: {
+  adresse_station: string | null
+  nom_station: string
+}): string | null {
+  const street = detail.adresse_station?.trim()
+  if (!street) return null
+
+  const city = detail.nom_station.split(' - ').pop()?.trim()
+  if (city && city !== street) {
+    return `${street}, ${city}`
+  }
+
+  return street
+}
+
+/** Texte à copier : adresse postale si connue, sinon coordonnées. */
+export function formatStationCopyText(
+  lat: number,
+  lng: number,
+  detail: { adresse_station: string | null; nom_station: string } | null,
+): string {
+  const address = detail ? formatStationAddress(detail) : null
+  return address ?? formatStationCoordinates(lat, lng)
+}
+
 export function isFreeAccess(conditionAcces: string): boolean {
   return conditionAcces.trim().toLowerCase() === 'accès libre'
 }

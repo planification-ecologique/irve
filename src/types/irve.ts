@@ -26,6 +26,28 @@ export interface DynamicSummary {
   available_count: number
 }
 
+export interface PdcDynamic {
+  id_pdc_itinerance: string
+  horodatage: string | null
+  etat_pdc: string | null
+  occupation_pdc: string | null
+  etat_prise_type_ef: string | null
+  etat_prise_type_2: string | null
+  etat_prise_type_combo_ccs: string | null
+  etat_prise_type_chademo: string | null
+}
+
+export interface PdcDetail {
+  id_pdc_itinerance: string
+  puissance_nominale: number
+  prise_type_ef: boolean
+  prise_type_2: boolean
+  prise_type_combo_ccs: boolean
+  prise_type_chademo: boolean
+  prise_type_autre: boolean
+  dynamic: PdcDynamic | null
+}
+
 export interface Station {
   station_key: string
   id: number
@@ -53,6 +75,26 @@ export interface IrvePointsResponse {
   stations: Station[]
   total: number
   updatedAt: string
+}
+
+/** Détail station QualiCharge (`/api/irve/stations/{id}/`). */
+export interface StationDetail {
+  id_station_itinerance: string
+  nom_station: string
+  adresse_station: string | null
+  implantation_station: string | null
+  code_insee_commune: string | null
+  horaires: string | null
+  telephone_operateur: string | null
+  restriction_gabarit: string | null
+  cable_t2_attache: boolean | null
+  paiement_acte: boolean
+  paiement_cb: boolean | null
+  paiement_autre: boolean | null
+  reservation: boolean
+  station_deux_roues: boolean
+  summary: StationSummary
+  pdcs: PdcDetail[]
 }
 
 export interface StationFeatureProperties {

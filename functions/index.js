@@ -1,6 +1,6 @@
 const { onRequest } = require('firebase-functions/v2/https')
 
-const API_BASE = 'https://qualicharge-carto.osc-fr1.scalingo.io'
+const API_BASE = 'https://map.qualicharge.beta.gouv.fr'
 
 exports.irveProxy = onRequest(
   {

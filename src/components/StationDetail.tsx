@@ -17,12 +17,20 @@ import {
   NavigationProviderIcon,
   RouteIcon,
 } from './NavigationIcons'
+import { useStationDetail } from '../hooks/useStationDetail'
 import {
   getAvailabilityTone,
-  formatStationCoordinates,
+  formatStationCopyText,
+  formatStationAddress,
   isFreeAccess,
   splitStationName,
 } from '../lib/stationDisplay'
+import {
+  formatConnectorAvailability,
+  getConnectorAvailabilityTone,
+  summarizeConnectorAvailability,
+} from '../lib/pdcAvailability'
+import { formatOperatorPhone, formatPaymentMethods } from '../lib/stationDetailDisplay'
 import { ConnectorIcon } from './ConnectorIcon'
 
 interface StationDetailProps {
@@ -40,6 +48,16 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
   const [savedProvider, setSavedProvider] = useState(getStoredNavigationProvider)
   const [copied, setCopied] = useState(false)
   const navAppRef = useRef<HTMLDivElement>(null)
+  const { detail, loading: detailLoading } = useStationDetail(station.id_station_itinerance)
+  const formattedAddress = detail ? formatStationAddress(detail) : null
+  const connectorAvailability = detail?.pdcs ? summarizeConnectorAvailability(detail.pdcs) : []
+  const connectorAvailabilityByType = new Map(
+    connectorAvailability.map((entry) => [entry.type, entry]),
+  )
+  const paymentMethods = detail ? formatPaymentMethods(detail) : null
+  const operatorPhone = detail ? formatOperatorPhone(detail.telephone_operateur) : null
+  const copyLabel = formattedAddress ? "Copier l'adresse" : 'Copier les coordonnées'
+  const copiedLabel = formattedAddress ? 'Adresse copiée' : 'Coordonnées copiées'
 
   useEffect(() => {
     if (!navPickerOpen) return
@@ -74,15 +92,15 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
     setNavPickerOpen(false)
   }
 
-  const handleCopyCoordinates = async () => {
-    const coordinates = formatStationCoordinates(station.lat, station.lng)
+  const handleCopyLocation = async () => {
+    const text = formatStationCopyText(station.lat, station.lng, detail)
 
     try {
-      await navigator.clipboard.writeText(coordinates)
+      await navigator.clipboard.writeText(text)
       setCopied(true)
     } catch {
       const textarea = document.createElement('textarea')
-      textarea.value = coordinates
+      textarea.value = text
       textarea.style.position = 'fixed'
       textarea.style.opacity = '0'
       document.body.appendChild(textarea)
@@ -102,6 +120,11 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
       <header className="station-detail__header">
         <h2>{name}</h2>
         {location && <p className="station-detail__location">{location}</p>}
+        {formattedAddress ? (
+          <p className="station-detail__address">{formattedAddress}</p>
+        ) : detailLoading ? (
+          <p className="station-detail__address station-detail__address--loading">Chargement de l’adresse…</p>
+        ) : null}
       </header>
 
       <p className="station-detail__operator">{station.nom_operateur}</p>
@@ -153,9 +176,9 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
           <button
             type="button"
             className={`station-detail__nav-btn station-detail__nav-btn--copy${copied ? ' station-detail__nav-btn--copied' : ''}`}
-            onClick={handleCopyCoordinates}
-            aria-label={copied ? 'Coordonnées copiées' : 'Copier les coordonnées'}
-            title={copied ? 'Coordonnées copiées' : 'Copier les coordonnées'}
+            onClick={handleCopyLocation}
+            aria-label={copied ? copiedLabel : copyLabel}
+            title={copied ? copiedLabel : copyLabel}
           >
             {copied ? <CheckIcon /> : <CopyIcon />}
           </button>
@@ -168,15 +191,39 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
           {CONNECTOR_TYPES.map((connector) => {
             const active = stationHasConnector(summary, connector)
             const meta = CONNECTOR_META[connector]
+            const availability = connectorAvailabilityByType.get(connector)
+            const availabilityTone = availability
+              ? getConnectorAvailabilityTone(availability)
+              : null
+
+            if (!active) return null
 
             return (
               <span
                 key={connector}
-                className={`connector-badge${active ? ' connector-badge--active' : ''}`}
-                title={meta.label}
+                className={`connector-badge connector-badge--active${
+                  availabilityTone ? ` connector-badge--${availabilityTone}` : ''
+                }`}
+                title={
+                  availability
+                    ? `${meta.label} · ${formatConnectorAvailability(availability)} · ${availability.maxPowerKw} kW`
+                    : meta.label
+                }
               >
                 <ConnectorIcon type={connector} size={22} />
-                <span>{meta.shortLabel}</span>
+                <span className="connector-badge__copy">
+                  <span className="connector-badge__label">{meta.shortLabel}</span>
+                  {availability && (
+                    <span className="connector-badge__status">
+                      {formatConnectorAvailability(availability)}
+                    </span>
+                  )}
+                  {!availability && detailLoading && (
+                    <span className="connector-badge__status connector-badge__status--loading">
+                      …
+                    </span>
+                  )}
+                </span>
               </span>
             )
           })}
@@ -196,6 +243,52 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
             <dd>{station.accessibilite_pmr}</dd>
           </div>
         </div>
+        {(detail?.implantation_station || detail?.horaires) && (
+          <div className="station-detail__meta-pair">
+            {detail.implantation_station && (
+              <div>
+                <dt>Implantation</dt>
+                <dd>{detail.implantation_station}</dd>
+              </div>
+            )}
+            {detail.horaires && (
+              <div>
+                <dt>Horaires</dt>
+                <dd>{detail.horaires}</dd>
+              </div>
+            )}
+          </div>
+        )}
+        {(paymentMethods || operatorPhone) && (
+          <div className="station-detail__meta-pair">
+            {paymentMethods && (
+              <div>
+                <dt>Paiement</dt>
+                <dd>{paymentMethods}</dd>
+              </div>
+            )}
+            {operatorPhone && (
+              <div>
+                <dt>Contact</dt>
+                <dd>
+                  <a href={`tel:${operatorPhone.replace(/\s/g, '')}`}>{operatorPhone}</a>
+                </dd>
+              </div>
+            )}
+          </div>
+        )}
+        {detail?.restriction_gabarit && detail.restriction_gabarit !== 'Aucune Restriction' && (
+          <div>
+            <dt>Gabarit</dt>
+            <dd>{detail.restriction_gabarit}</dd>
+          </div>
+        )}
+        {detail?.cable_t2_attache && (
+          <div>
+            <dt>Câble Type 2</dt>
+            <dd>Attaché sur place</dd>
+          </div>
+        )}
         <div>
           <dt>Aménageur</dt>
           <dd>{station.nom_amenageur}</dd>

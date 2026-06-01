@@ -2,7 +2,9 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const API_URL = 'https://qualicharge-carto.osc-fr1.scalingo.io/api/irve/points/'
+import { QUALICHARGE_API_BASE } from '../qualicharge-api.mjs'
+
+const API_URL = `${QUALICHARGE_API_BASE}/api/irve/points/`
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const outDir = join(root, 'public', 'data')
 const outFile = join(outDir, 'stations.json')

@@ -6,7 +6,7 @@ Carte interactive des infrastructures de recharge pour véhicules électriques (
 
 - [Vite](https://vite.dev/) + React + TypeScript
 - [MapLibre GL JS](https://maplibre.org/) pour la cartographie
-- Données [QualiCharge](https://qualicharge-carto.osc-fr1.scalingo.io/api/irve/points/)
+- Données [QualiCharge](https://map.qualicharge.beta.gouv.fr/)
 
 ## Fonctionnalités
 
@@ -32,7 +32,9 @@ npm run build
 npm run preview
 ```
 
-Les données IRVE sont chargées à la volée via `/api/irve/points/` (proxy Cloud Function → QualiCharge). Rafraîchissement automatique toutes les 2 minutes.
+Les données IRVE sont chargées à la volée via `/api/irve/points/` (proxy Cloud Function → [map.qualicharge.beta.gouv.fr](https://map.qualicharge.beta.gouv.fr/)). Rafraîchissement automatique toutes les 2 minutes.
+
+Le détail d’une station (`/api/irve/stations/{id}/`) fournit l’adresse postale précise.
 
 Si l’API est indisponible, repli sur `/data/stations.json` (snapshot généré au build) avec un bandeau « Données non live ».
 
