@@ -13,10 +13,9 @@ export function splitStationName(nomStation: string): { name: string; location: 
   }
 }
 
-/** Adresse lisible (sans préfixe opérateur) pour copie / partage. */
-export function getStationAddress(nomStation: string): string {
-  const separator = nomStation.indexOf(' - ')
-  return separator === -1 ? nomStation.trim() : nomStation.slice(separator + 3).trim()
+/** Coordonnées GPS copiables (lat, lng) — compatibles Google Maps, Plans, etc. */
+export function formatStationCoordinates(lat: number, lng: number): string {
+  return `${lat},${lng}`
 }
 
 export function isFreeAccess(conditionAcces: string): boolean {

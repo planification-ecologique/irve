@@ -19,7 +19,7 @@ import {
 } from './NavigationIcons'
 import {
   getAvailabilityTone,
-  getStationAddress,
+  formatStationCoordinates,
   isFreeAccess,
   splitStationName,
 } from '../lib/stationDisplay'
@@ -74,16 +74,15 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
     setNavPickerOpen(false)
   }
 
-  const handleCopyAddress = async () => {
-    const address = getStationAddress(station.nom_station)
+  const handleCopyCoordinates = async () => {
+    const coordinates = formatStationCoordinates(station.lat, station.lng)
 
     try {
-      await navigator.clipboard.writeText(address)
+      await navigator.clipboard.writeText(coordinates)
       setCopied(true)
     } catch {
-      // fallback si clipboard API indisponible
       const textarea = document.createElement('textarea')
-      textarea.value = address
+      textarea.value = coordinates
       textarea.style.position = 'fixed'
       textarea.style.opacity = '0'
       document.body.appendChild(textarea)
@@ -154,9 +153,9 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
           <button
             type="button"
             className={`station-detail__nav-btn station-detail__nav-btn--copy${copied ? ' station-detail__nav-btn--copied' : ''}`}
-            onClick={handleCopyAddress}
-            aria-label={copied ? 'Adresse copiée' : "Copier l'adresse"}
-            title={copied ? 'Adresse copiée' : "Copier l'adresse"}
+            onClick={handleCopyCoordinates}
+            aria-label={copied ? 'Coordonnées copiées' : 'Copier les coordonnées'}
+            title={copied ? 'Coordonnées copiées' : 'Copier les coordonnées'}
           >
             {copied ? <CheckIcon /> : <CopyIcon />}
           </button>
