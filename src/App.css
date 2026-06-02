@@ -1040,6 +1040,21 @@
   font-size: 0.875rem;
 }
 
+.station-detail__pricing-provenance {
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.station-detail__pricing-provenance a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.station-detail__pricing-provenance a:hover {
+  text-decoration: underline;
+}
+
 .station-detail__id {
   margin: 1rem 0 0;
   font-size: 0.6875rem;

@@ -33,6 +33,7 @@ import {
   summarizeConnectorAvailability,
 } from '../lib/pdcAvailability'
 import { formatOperatorPhone, formatPaymentMethods } from '../lib/stationDetailDisplay'
+import { getStationOperatorTariffHeadline } from '../data/operatorTariffs'
 import { ConnectorIcon } from './ConnectorIcon'
 
 interface StationDetailProps {
@@ -64,6 +65,9 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
   const operatorPhone = detail ? formatOperatorPhone(detail.telephone_operateur) : null
   const copyLabel = formattedAddress ? "Copier l'adresse" : 'Copier les coordonnées'
   const copiedLabel = formattedAddress ? 'Adresse copiée' : 'Coordonnées copiées'
+  // Repli sur le tarif national/régional de l'opérateur quand QualiCharge ne
+  // fournit pas de prix au niveau de la station.
+  const operatorTariff = summary.pricing_headline ? null : getStationOperatorTariffHeadline(station)
 
   useEffect(() => {
     if (!navPickerOpen) return
@@ -312,6 +316,18 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
         <div className="station-detail__pricing">
           <span className="section-label">Tarification</span>
           <p>{summary.pricing_headline}</p>
+        </div>
+      )}
+      {operatorTariff && (
+        <div className="station-detail__pricing">
+          <span className="section-label">Tarification</span>
+          <p>{operatorTariff.text}</p>
+          <p className="station-detail__pricing-provenance">
+            {operatorTariff.provenance} —{' '}
+            <a href={operatorTariff.source} target="_blank" rel="noopener noreferrer">
+              source
+            </a>
+          </p>
         </div>
       )}
 
