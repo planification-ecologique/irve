@@ -209,10 +209,64 @@
   background: var(--panel-bg);
 }
 
+.analytics-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.35rem;
+}
+
+.analytics-panel__head h3 {
+  margin: 0 0 0.35rem;
+}
+
+.analytics-panel__head .analytics-panel__hint {
+  margin-bottom: 0;
+}
+
 .analytics-panel h3 {
   margin: 0 0 0.35rem;
   font-size: 1rem;
   font-weight: 700;
+}
+
+.analytics-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.analytics-pagination__btn {
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.analytics-pagination__btn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: var(--accent-dim);
+}
+
+.analytics-pagination__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.analytics-pagination__status {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .analytics-panel__hint {
@@ -222,10 +276,14 @@
 }
 
 .analytics-panel__subhead {
-  margin: 1.25rem 0 0.75rem;
+  margin: 0 0 0.35rem;
   font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-muted);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.analytics-panel__head--sub {
+  margin-top: 1.25rem;
 }
 
 .analytics-charts-toolbar {

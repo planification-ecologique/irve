@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { IrveDataSource } from '../api/irve'
 import { TRANSPORT_IRVE_DATASET_URL, SLOW_MAX_POWER_KW } from '../api/transportIrve'
 import { useSlowIrveData } from '../hooks/useSlowIrveData'
@@ -42,6 +42,8 @@ function formatNum(value: number, loading: boolean): string {
 function formatInt(value: number, loading: boolean): string {
   return loading ? '…' : value.toLocaleString('fr-FR')
 }
+
+const ANALYTICS_LIST_PAGE_SIZE = 20
 
 const ANALYTICS_CONNECTOR_ROWS: {
   key: keyof ConnectorStats
@@ -174,6 +176,8 @@ export function AnalyticsPage({
 }: AnalyticsPageProps) {
   const [addSlowLayer, setAddSlowLayer] = useState(false)
   const [chartMetric, setChartMetric] = useState<AnalyticsMetric>('stations')
+  const [operatorPage, setOperatorPage] = useState(1)
+  const [amenageurPage, setAmenageurPage] = useState(1)
   const { data: slowData, loading: slowLoading, error: slowError } = useSlowIrveData(addSlowLayer)
 
   const stations = useMemo(() => {
@@ -194,28 +198,75 @@ export function AnalyticsPage({
 
   const anomalyWarnings = useMemo(() => computeDataAnomalyWarnings(stations), [stations])
 
-  const displayOperators = useMemo(
+  const sortedOperators = useMemo(
     () =>
-      [...analytics.operators]
-        .sort(
-          (a, b) =>
-            operatorMetricTotal(b, chartMetric) - operatorMetricTotal(a, chartMetric) ||
-            b.pdc - a.pdc,
-        )
-        .slice(0, 20),
+      [...analytics.operators].sort(
+        (a, b) =>
+          operatorMetricTotal(b, chartMetric) - operatorMetricTotal(a, chartMetric) ||
+          b.pdc - a.pdc,
+      ),
     [analytics.operators, chartMetric],
   )
 
-  const displayAmenageurs = useMemo(
+  const operatorPageCount = Math.max(1, Math.ceil(sortedOperators.length / ANALYTICS_LIST_PAGE_SIZE))
+
+  useEffect(() => {
+    setOperatorPage(1)
+  }, [chartMetric, sortedOperators.length])
+
+  useEffect(() => {
+    if (operatorPage > operatorPageCount) {
+      setOperatorPage(operatorPageCount)
+    }
+  }, [operatorPage, operatorPageCount])
+
+  const displayOperators = useMemo(() => {
+    const start = (operatorPage - 1) * ANALYTICS_LIST_PAGE_SIZE
+    return sortedOperators.slice(start, start + ANALYTICS_LIST_PAGE_SIZE)
+  }, [sortedOperators, operatorPage])
+
+  const operatorRangeStart =
+    sortedOperators.length === 0 ? 0 : (operatorPage - 1) * ANALYTICS_LIST_PAGE_SIZE + 1
+  const operatorRangeEnd = Math.min(
+    operatorPage * ANALYTICS_LIST_PAGE_SIZE,
+    sortedOperators.length,
+  )
+
+  const sortedAmenageurs = useMemo(
     () =>
-      [...analytics.amenageurs]
-        .sort(
-          (a, b) =>
-            namedCountMetricValue(b, chartMetric) - namedCountMetricValue(a, chartMetric) ||
-            b.pdc - a.pdc,
-        )
-        .slice(0, 12),
+      [...analytics.amenageurs].sort(
+        (a, b) =>
+          namedCountMetricValue(b, chartMetric) - namedCountMetricValue(a, chartMetric) ||
+          b.pdc - a.pdc,
+      ),
     [analytics.amenageurs, chartMetric],
+  )
+
+  const amenageurPageCount = Math.max(
+    1,
+    Math.ceil(sortedAmenageurs.length / ANALYTICS_LIST_PAGE_SIZE),
+  )
+
+  useEffect(() => {
+    setAmenageurPage(1)
+  }, [chartMetric, sortedAmenageurs.length])
+
+  useEffect(() => {
+    if (amenageurPage > amenageurPageCount) {
+      setAmenageurPage(amenageurPageCount)
+    }
+  }, [amenageurPage, amenageurPageCount])
+
+  const displayAmenageurs = useMemo(() => {
+    const start = (amenageurPage - 1) * ANALYTICS_LIST_PAGE_SIZE
+    return sortedAmenageurs.slice(start, start + ANALYTICS_LIST_PAGE_SIZE)
+  }, [sortedAmenageurs, amenageurPage])
+
+  const amenageurRangeStart =
+    sortedAmenageurs.length === 0 ? 0 : (amenageurPage - 1) * ANALYTICS_LIST_PAGE_SIZE + 1
+  const amenageurRangeEnd = Math.min(
+    amenageurPage * ANALYTICS_LIST_PAGE_SIZE,
+    sortedAmenageurs.length,
   )
 
   const displayPowerBuckets = useMemo(() => {
@@ -227,15 +278,15 @@ export function AnalyticsPage({
     })
   }, [analytics.powerBuckets, chartMetric, addSlowLayer])
 
-  const maxOperator = displayOperators[0]
-    ? operatorMetricTotal(displayOperators[0], chartMetric)
+  const maxOperator = sortedOperators[0]
+    ? operatorMetricTotal(sortedOperators[0], chartMetric)
     : 1
   const maxPower = Math.max(
     ...displayPowerBuckets.map((b) => bucketMetricValue(b, chartMetric)),
     1,
   )
-  const maxAmenageur = displayAmenageurs[0]
-    ? namedCountMetricValue(displayAmenageurs[0], chartMetric)
+  const maxAmenageur = sortedAmenageurs[0]
+    ? namedCountMetricValue(sortedAmenageurs[0], chartMetric)
     : 1
   const maxConnector = Math.max(
     connectorMetricValue(analytics.connectors.ccs, chartMetric),
@@ -408,10 +459,38 @@ export function AnalyticsPage({
 
         <div className="analytics-columns">
           <section className="analytics-panel" aria-label="Top opérateurs">
-            <h3>{chartMetric === 'stations' ? 'Stations' : 'PDC'} par opérateur</h3>
-            <p className="analytics-panel__hint">
-              Top 20 · barres empilées par puissance max. station
-            </p>
+            <div className="analytics-panel__head">
+              <div>
+                <h3>{chartMetric === 'stations' ? 'Stations' : 'PDC'} par opérateur</h3>
+                <p className="analytics-panel__hint">
+                  {sortedOperators.length.toLocaleString('fr-FR')} opérateurs · barres empilées par
+                  puissance max. station
+                </p>
+              </div>
+              {sortedOperators.length > ANALYTICS_LIST_PAGE_SIZE && (
+                <nav className="analytics-pagination" aria-label="Pagination opérateurs">
+                  <button
+                    type="button"
+                    className="analytics-pagination__btn"
+                    disabled={operatorPage <= 1 || loading}
+                    onClick={() => setOperatorPage((p) => p - 1)}
+                  >
+                    Précédent
+                  </button>
+                  <span className="analytics-pagination__status">
+                    {operatorRangeStart}–{operatorRangeEnd} / {formatInt(sortedOperators.length, loading)}
+                  </span>
+                  <button
+                    type="button"
+                    className="analytics-pagination__btn"
+                    disabled={operatorPage >= operatorPageCount || loading}
+                    onClick={() => setOperatorPage((p) => p + 1)}
+                  >
+                    Suivant
+                  </button>
+                </nav>
+              )}
+            </div>
             {legendBuckets.length > 0 && (
               <ul className="analytics-legend" aria-label="Légende puissance">
                 {ANALYTICS_POWER_BUCKETS.filter((def) =>
@@ -512,9 +591,42 @@ export function AnalyticsPage({
               </article>
             </div>
 
-            {analytics.amenageurs.length > 0 && (
+            {sortedAmenageurs.length > 0 && (
               <>
-                <h4 className="analytics-panel__subhead">Top aménageurs</h4>
+                <div className="analytics-panel__head analytics-panel__head--sub">
+                  <div>
+                    <h4 className="analytics-panel__subhead">
+                      {chartMetric === 'stations' ? 'Stations' : 'PDC'} par aménageur
+                    </h4>
+                    <p className="analytics-panel__hint">
+                      {sortedAmenageurs.length.toLocaleString('fr-FR')} aménageurs
+                    </p>
+                  </div>
+                  {sortedAmenageurs.length > ANALYTICS_LIST_PAGE_SIZE && (
+                    <nav className="analytics-pagination" aria-label="Pagination aménageurs">
+                      <button
+                        type="button"
+                        className="analytics-pagination__btn"
+                        disabled={amenageurPage <= 1 || loading}
+                        onClick={() => setAmenageurPage((p) => p - 1)}
+                      >
+                        Précédent
+                      </button>
+                      <span className="analytics-pagination__status">
+                        {amenageurRangeStart}–{amenageurRangeEnd} /{' '}
+                        {formatInt(sortedAmenageurs.length, loading)}
+                      </span>
+                      <button
+                        type="button"
+                        className="analytics-pagination__btn"
+                        disabled={amenageurPage >= amenageurPageCount || loading}
+                        onClick={() => setAmenageurPage((p) => p + 1)}
+                      >
+                        Suivant
+                      </button>
+                    </nav>
+                  )}
+                </div>
                 <div className="analytics-bars analytics-bars--compact">
                   {displayAmenageurs.map((row) => (
                     <BarRow

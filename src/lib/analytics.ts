@@ -122,7 +122,7 @@ function normalizeOperatorName(name: string): string {
 function aggregateByField(
   stations: Station[],
   field: 'nom_operateur' | 'nom_amenageur',
-  limit: number,
+  limit?: number,
 ): NamedCount[] {
   const map = new Map<string, { stations: number; pdc: number }>()
 
@@ -136,10 +136,10 @@ function aggregateByField(
     map.set(name, entry)
   }
 
-  return [...map.entries()]
+  const sorted = [...map.entries()]
     .map(([name, counts]) => ({ name, ...counts }))
     .sort((a, b) => b.stations - a.stations || b.pdc - a.pdc)
-    .slice(0, limit)
+  return limit === undefined ? sorted : sorted.slice(0, limit)
 }
 
 function powerBucketFor(maxPower: number): (typeof ANALYTICS_POWER_BUCKETS)[number] {
@@ -277,7 +277,7 @@ export function computeIrveAnalytics(stations: Station[]): IrveAnalytics {
     reservation: stations.filter((s) => s.reservation).length,
     deuxRoues: stations.filter((s) => s.station_deux_roues).length,
     operators: aggregateOperators(stations),
-    amenageurs: aggregateByField(stations, 'nom_amenageur', 12),
+    amenageurs: aggregateByField(stations, 'nom_amenageur'),
     powerBuckets: ANALYTICS_POWER_BUCKETS.map((def) => bucketMap.get(def.id)!),
     connectors,
     liveAvailability,
