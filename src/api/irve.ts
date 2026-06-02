@@ -11,7 +11,7 @@ function stationDetailUrl(id: string): string {
 export const POLL_INTERVAL_MS = 2 * 60 * 1000
 export const POLL_INTERVAL_MINUTES = POLL_INTERVAL_MS / 60_000
 
-export type IrveDataSource = 'live' | 'fallback'
+export type IrveDataSource = 'live' | 'fallback' | 'transport-slow' | 'mixed'
 
 export interface IrveFetchResult {
   data: IrvePointsResponse

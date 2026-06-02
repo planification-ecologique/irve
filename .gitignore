@@ -9,6 +9,10 @@ lerna-debug.log*
 
 node_modules
 dist
+
+# IRVE consolidation (téléchargée / générée localement, pas versionnée)
+public/data/.irve-consolidated.csv
+public/data/slow-stations.json
 dist-ssr
 *.local
 

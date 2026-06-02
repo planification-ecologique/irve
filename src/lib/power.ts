@@ -1,3 +1,13 @@
+export const SLOW_POWER_THRESHOLDS = [3, 7, 22] as const
+
+export type SlowPowerThreshold = (typeof SLOW_POWER_THRESHOLDS)[number]
+
+export const SLOW_POWER_COLORS: Record<SlowPowerThreshold, string> = {
+  3: '#94a3b8',
+  7: '#a78bfa',
+  22: '#60a5fa',
+}
+
 export const MIN_POWER_THRESHOLDS = [50, 100, 150, 180, 350] as const
 
 export type PowerThreshold = (typeof MIN_POWER_THRESHOLDS)[number]
@@ -18,7 +28,14 @@ export const POWER_LABELS: Record<PowerThreshold, string> = {
   350: '≥350 kW',
 }
 
+export function getSlowPowerColor(maxPower: number): string {
+  if (maxPower >= 22) return SLOW_POWER_COLORS[22]
+  if (maxPower >= 7) return SLOW_POWER_COLORS[7]
+  return SLOW_POWER_COLORS[3]
+}
+
 export function getPowerColor(maxPower: number): string {
+  if (maxPower < 50) return getSlowPowerColor(maxPower)
   if (maxPower >= 350) return POWER_COLORS[350]
   if (maxPower >= 180) return POWER_COLORS[180]
   if (maxPower >= 150) return POWER_COLORS[150]
@@ -35,7 +52,10 @@ export function getPowerBadgeClass(maxPower: number): string {
   if (maxPower >= 180) return 'power-badge--p180'
   if (maxPower >= 150) return 'power-badge--p150'
   if (maxPower >= 100) return 'power-badge--p100'
-  return 'power-badge--p50'
+  if (maxPower >= 50) return 'power-badge--p50'
+  if (maxPower >= 22) return 'power-badge--p22'
+  if (maxPower >= 7) return 'power-badge--p7'
+  return 'power-badge--p3'
 }
 
 export function getPowerLabel(maxPower: number): string {

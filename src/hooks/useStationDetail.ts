@@ -7,11 +7,17 @@ interface UseStationDetailResult {
   loading: boolean
 }
 
-export function useStationDetail(stationId: string): UseStationDetailResult {
+export function useStationDetail(stationId: string, enabled = true): UseStationDetailResult {
   const [detail, setDetail] = useState<StationDetail | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!enabled) {
+      setDetail(null)
+      setLoading(false)
+      return
+    }
+
     let cancelled = false
     setLoading(true)
     setDetail(null)
@@ -26,7 +32,7 @@ export function useStationDetail(stationId: string): UseStationDetailResult {
     return () => {
       cancelled = true
     }
-  }, [stationId])
+  }, [stationId, enabled])
 
   return { detail, loading }
 }

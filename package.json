@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "fetch:slow": "node scripts/fetch-slow-stations.mjs",
     "build": "node scripts/fetch-stations.mjs && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",

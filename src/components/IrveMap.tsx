@@ -5,14 +5,7 @@ import type { Station, StationFeatureProperties } from '../types/irve'
 import { stationsToGeoJSON } from '../lib/geojson'
 import { applyFrenchLabels, getCartoStyleUrl, MAP_LOCALE_FR, preserveStationStyle } from '../lib/mapStyle'
 import type { Theme } from '../lib/theme'
-import {
-  clusterAvailOpacity,
-  clusterPowerColor,
-  clusterProperties,
-  pointAvailOpacity,
-  pointPowerColor,
-  unavailableColor,
-} from '../lib/mapLayers'
+import { clusterProperties, mixedClusterColor, mixedClusterOpacity, mixedPointColor, mixedPointOpacity } from '../lib/mapLayers'
 import { getPowerBadgeClass } from '../lib/power'
 import { getAvailabilityTone } from '../lib/stationDisplay'
 
@@ -67,12 +60,7 @@ function addStationLayers(map: Map, stations: Station[]) {
     source: 'stations',
     filter: ['has', 'point_count'],
     paint: {
-      'circle-color': [
-        'case',
-        ['==', ['get', 'sum_available'], 0],
-        unavailableColor,
-        clusterPowerColor,
-      ],
+      'circle-color': mixedClusterColor,
       'circle-radius': [
         'step',
         ['get', 'point_count'],
@@ -84,12 +72,7 @@ function addStationLayers(map: Map, stations: Station[]) {
         200,
         34,
       ],
-      'circle-opacity': [
-        'case',
-        ['==', ['get', 'sum_available'], 0],
-        0.45,
-        clusterAvailOpacity,
-      ],
+      'circle-opacity': mixedClusterOpacity,
     },
   })
 
@@ -114,12 +97,7 @@ function addStationLayers(map: Map, stations: Station[]) {
     source: 'stations',
     filter: ['!', ['has', 'point_count']],
     paint: {
-      'circle-color': [
-        'case',
-        ['==', ['get', 'available_count'], 0],
-        unavailableColor,
-        pointPowerColor,
-      ],
+      'circle-color': mixedPointColor,
       'circle-radius': [
         'interpolate',
         ['linear'],
@@ -131,12 +109,7 @@ function addStationLayers(map: Map, stations: Station[]) {
         15,
         10,
       ],
-      'circle-opacity': [
-        'case',
-        ['==', ['get', 'available_count'], 0],
-        0.45,
-        pointAvailOpacity,
-      ],
+      'circle-opacity': mixedPointOpacity,
     },
   })
 
@@ -235,9 +208,14 @@ export function IrveMap({ stations, selectedKey, onSelect, theme }: IrveMapProps
       hideHoverPopup()
       hoveredKeyRef.current = props.station_key
 
-      const availTone = getAvailabilityTone(props.available_count)
-      const availClass = availTone === 'available' ? 'map-popup__avail' : 'map-popup__none'
-      const availHtml = `<span class="${availClass}">${props.available_count} sur ${props.pdc_count} PDC disponibles</span>`
+      const availHtml =
+        props.availability_nc === 1
+          ? '<span class="map-popup__nc">Dispo NC</span>'
+          : (() => {
+              const availTone = getAvailabilityTone(props.available_count)
+              const availClass = availTone === 'available' ? 'map-popup__avail' : 'map-popup__none'
+              return `<span class="${availClass}">${props.available_count} sur ${props.pdc_count} PDC disponibles</span>`
+            })()
       const powerClass = getPowerBadgeClass(props.max_power)
 
       const html = `

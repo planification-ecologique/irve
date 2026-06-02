@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
 import type { Station, ConnectorType } from '../types/irve'
+import { TRANSPORT_IRVE_DATASET_URL, SLOW_MAX_POWER_KW } from '../api/transportIrve'
 import {
   MIN_POWER_THRESHOLDS,
   getPowerThresholdClass,
   POWER_LABELS,
 } from '../lib/power'
 import { CONNECTOR_META, CONNECTOR_FILTER_TYPES, stationHasConnector } from '../lib/connectors'
+import { isStaticStation } from '../lib/stationOrigin'
 import { matchesAvailabilityFilter, type AvailabilityFilter } from '../lib/stations'
 import { getOperatorOptionsWithCounts, getOperatorRequiredNote, stationMatchesOperator } from '../lib/operators'
 import { ConnectorIcon } from './ConnectorIcon'
@@ -45,8 +47,9 @@ export const defaultFilters: FilterState = {
   availability: 'all',
 }
 
-export function countActiveFilters(filters: FilterState): number {
+export function countActiveFilters(filters: FilterState, includeSlow = false): number {
   let count = 0
+  if (includeSlow) count++
   if (filters.search.trim()) count++
   if (filters.operator) count++
   if (filters.minPower !== defaultFilters.minPower) count++
@@ -55,7 +58,7 @@ export function countActiveFilters(filters: FilterState): number {
   return count
 }
 
-export function useFilteredStations(stations: Station[] | undefined) {
+export function useFilteredStations(stations: Station[] | undefined, includeSlow = false) {
   const [filters, setFilters] = useState<FilterState>(defaultFilters)
 
   const filtered = useMemo(() => {
@@ -64,11 +67,20 @@ export function useFilteredStations(stations: Station[] | undefined) {
     const query = filters.search.trim().toLowerCase()
 
     return stations.filter((station) => {
-      if (station.summary.max_power < filters.minPower) return false
-      if (!matchesAvailabilityFilter(station, filters.availability)) return false
+      const isStatic = isStaticStation(station)
+
+      if (isStatic) {
+        if (!includeSlow) return false
+        if (station.summary.max_power >= SLOW_MAX_POWER_KW) return false
+      } else {
+        if (station.summary.max_power < filters.minPower) return false
+        if (!matchesAvailabilityFilter(station, filters.availability)) return false
+      }
+
       if (!stationMatchesOperator(station, filters.operator)) return false
 
-      if (filters.connector && !stationHasConnector(station.summary, filters.connector, filters.minPower)) {
+      const connectorMinPower = isStatic ? 0 : filters.minPower
+      if (filters.connector && !stationHasConnector(station.summary, filters.connector, connectorMinPower)) {
         return false
       }
 
@@ -86,7 +98,7 @@ export function useFilteredStations(stations: Station[] | undefined) {
 
       return true
     })
-  }, [stations, filters])
+  }, [stations, filters, includeSlow])
 
   return { filters, setFilters, filtered }
 }
@@ -97,6 +109,9 @@ interface FiltersPanelProps {
   stations: Station[]
   totalCount: number
   filteredCount: number
+  includeSlow: boolean
+  slowLoading: boolean
+  onIncludeSlowChange: (enabled: boolean) => void
 }
 
 export function FiltersPanel({
@@ -105,6 +120,9 @@ export function FiltersPanel({
   stations,
   totalCount,
   filteredCount,
+  includeSlow,
+  slowLoading,
+  onIncludeSlowChange,
 }: FiltersPanelProps) {
   const [outOfServiceHintOpen, setOutOfServiceHintOpen] = useState(false)
   const operatorOptions = useMemo(
@@ -163,20 +181,20 @@ export function FiltersPanel({
 
       <div className="field">
         <span>Puissance min.</span>
-        <div className="chip-group">
-          {MIN_POWER_THRESHOLDS.map((threshold) => (
-            <button
-              key={threshold}
-              type="button"
-              className={`chip ${getPowerThresholdClass(threshold)}${filters.minPower === threshold ? ' chip--active' : ''}`}
-              onClick={() => onChange({ ...filters, minPower: threshold })}
-              title={POWER_LABELS[threshold]}
-            >
-              ≥{threshold} kW
-            </button>
-          ))}
+          <div className="chip-group">
+            {MIN_POWER_THRESHOLDS.map((threshold) => (
+              <button
+                key={threshold}
+                type="button"
+                className={`chip ${getPowerThresholdClass(threshold)}${filters.minPower === threshold ? ' chip--active' : ''}`}
+                onClick={() => onChange({ ...filters, minPower: threshold })}
+                title={POWER_LABELS[threshold]}
+              >
+                ≥{threshold} kW
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
       <div className="field">
         <span>Connecteurs</span>
@@ -240,6 +258,27 @@ export function FiltersPanel({
         {outOfServiceHintOpen && (
           <p className="field__hint field__hint--info">{AVAILABILITY_OPTIONS.find((o) => o.hint)?.hint}</p>
         )}
+      </div>
+
+      <div className="filters-panel__footer">
+        <button
+          type="button"
+          className={`slow-switch${includeSlow ? ' slow-switch--on' : ''}`}
+          role="switch"
+          aria-checked={includeSlow}
+          disabled={slowLoading}
+          title={TRANSPORT_IRVE_DATASET_URL}
+          onClick={() => onIncludeSlowChange(!includeSlow)}
+        >
+          <span className="slow-switch__track" aria-hidden="true">
+            <span className="slow-switch__thumb" />
+          </span>
+          <span className="slow-switch__text">
+            {slowLoading
+              ? 'Chargement…'
+              : `Ajouter les bornes lentes (< ${SLOW_MAX_POWER_KW} kW)`}
+          </span>
+        </button>
       </div>
     </section>
   )

@@ -48,8 +48,12 @@ export interface PdcDetail {
   dynamic: PdcDynamic | null
 }
 
+export type StationDataOrigin = 'qualicharge' | 'transport-static'
+
 export interface Station {
   station_key: string
+  /** QualiCharge (live) ou consolidation statique transport.data.gouv.fr. */
+  data_origin?: StationDataOrigin
   id: number
   lat: number
   lng: number
@@ -105,6 +109,8 @@ export interface StationFeatureProperties {
   pdc_count: number
   max_power: number
   available_count: number
+  /** 1 = dispo temps réel absente (données statiques). */
+  availability_nc: 0 | 1
   has_ccs: boolean
   has_type2: boolean
   has_chademo: boolean

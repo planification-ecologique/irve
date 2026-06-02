@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Station } from '../types/irve'
+import { isStaticStation } from '../lib/stationOrigin'
 import { getPowerBadgeClass } from '../lib/power'
 import { CONNECTOR_TYPES, CONNECTOR_META, stationHasConnector } from '../lib/connectors'
 import {
@@ -39,6 +40,7 @@ interface StationDetailProps {
 }
 
 export function StationDetail({ station, onClose }: StationDetailProps) {
+  const staticOnly = isStaticStation(station)
   const { dynamic_summary: dynamic, summary } = station
   const powerClass = getPowerBadgeClass(summary.max_power)
   const { name, location } = splitStationName(station.nom_station)
@@ -48,7 +50,10 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
   const [savedProvider, setSavedProvider] = useState(getStoredNavigationProvider)
   const [copied, setCopied] = useState(false)
   const navAppRef = useRef<HTMLDivElement>(null)
-  const { detail, loading: detailLoading } = useStationDetail(station.id_station_itinerance)
+  const { detail, loading: detailLoading } = useStationDetail(
+    station.id_station_itinerance,
+    !staticOnly,
+  )
   const formattedAddress = detail ? formatStationAddress(detail) : null
   const connectorAvailability = detail?.pdcs ? summarizeConnectorAvailability(detail.pdcs) : []
   const connectorAvailabilityByType = new Map(
@@ -134,12 +139,19 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
           <span className="stat-card__value">{summary.max_power} kW</span>
           <span className="stat-card__label">Puissance max</span>
         </div>
-        <div className={`stat-card stat-card--availability stat-card--availability-${availabilityTone}`}>
-          <span className="stat-card__value">
-            {dynamic.available_count} sur {station.pdc_count}
-          </span>
-          <span className="stat-card__label">PDC disponibles</span>
-        </div>
+        {!staticOnly ? (
+          <div className={`stat-card stat-card--availability stat-card--availability-${availabilityTone}`}>
+            <span className="stat-card__value">
+              {dynamic.available_count} sur {station.pdc_count}
+            </span>
+            <span className="stat-card__label">PDC disponibles</span>
+          </div>
+        ) : (
+          <div className="stat-card stat-card--availability stat-card--availability-nc">
+            <span className="stat-card__value">NC</span>
+            <span className="stat-card__label">Dispo</span>
+          </div>
+        )}
       </div>
 
       <div className="station-detail__nav-block">

@@ -1,5 +1,6 @@
 import type { Feature, FeatureCollection, Point } from 'geojson'
 import type { Station, StationFeatureProperties } from '../types/irve'
+import { isStaticStation } from './stationOrigin'
 
 export function stationsToGeoJSON(
   stations: Station[],
@@ -19,6 +20,7 @@ export function stationsToGeoJSON(
         pdc_count: station.pdc_count,
         max_power: station.summary.max_power,
         available_count: station.dynamic_summary.available_count,
+        availability_nc: isStaticStation(station) ? 1 : 0,
         has_ccs: station.summary.has_prise_type_combo_ccs,
         has_type2: station.summary.has_prise_type_2,
         has_chademo: station.summary.has_prise_type_chademo,

@@ -12,7 +12,7 @@ interface UseIrveDataResult {
   refetch: () => void
 }
 
-export function useIrveData(): UseIrveDataResult {
+export function useIrveData(enabled = true): UseIrveDataResult {
   const [data, setData] = useState<IrvePointsResponse | null>(null)
   const [dataSource, setDataSource] = useState<IrveDataSource | null>(null)
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null)
@@ -23,6 +23,11 @@ export function useIrveData(): UseIrveDataResult {
   const lastFetchedAtRef = useRef<number | null>(null)
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false)
+      return
+    }
+
     let cancelled = false
     let intervalId: ReturnType<typeof window.setInterval> | undefined
 
@@ -94,7 +99,7 @@ export function useIrveData(): UseIrveDataResult {
       stopPolling()
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [tick])
+  }, [tick, enabled])
 
   return {
     data,

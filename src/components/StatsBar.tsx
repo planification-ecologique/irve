@@ -3,6 +3,7 @@ import { POLL_INTERVAL_MINUTES, type IrveDataSource } from '../api/irve'
 import { formatRelativeMinutes } from '../lib/time'
 import type { Theme } from '../lib/theme'
 import type { Station } from '../types/irve'
+import { isStaticStation } from '../lib/stationOrigin'
 import type { AvailabilityFilter } from '../lib/stations'
 import { ThemeToggle } from './ThemeToggle'
 
@@ -30,7 +31,7 @@ export function StatsBar({
   const [, setNowTick] = useState(0)
 
   useEffect(() => {
-    if (dataSource !== 'live' || !lastFetchedAt) return
+    if ((dataSource !== 'live' && dataSource !== 'mixed') || !lastFetchedAt) return
 
     let intervalId: ReturnType<typeof window.setInterval> | undefined
 
@@ -62,20 +63,25 @@ export function StatsBar({
     }
   }, [dataSource, lastFetchedAt])
 
-  const totalPdc = stations.reduce((sum, station) => sum + station.pdc_count, 0)
-  const availablePdc = stations.reduce(
+  const liveStations = stations.filter((station) => !isStaticStation(station))
+  const staticStations = stations.filter((station) => isStaticStation(station))
+  const hasLive = liveStations.length > 0
+
+  const totalPdc = liveStations.reduce((sum, station) => sum + station.pdc_count, 0)
+  const staticPdc = staticStations.reduce((sum, station) => sum + station.pdc_count, 0)
+  const availablePdc = liveStations.reduce(
     (sum, station) => sum + station.dynamic_summary.available_count,
     0,
   )
-  const occupiedPdc = stations.reduce(
+  const occupiedPdc = liveStations.reduce(
     (sum, station) => sum + station.dynamic_summary.occupied_count,
     0,
   )
-  const outOfServicePdc = stations.reduce(
+  const outOfServicePdc = liveStations.reduce(
     (sum, station) => sum + Math.max(0, station.pdc_count - station.dynamic_summary.en_service_count),
     0,
   )
-  const ultraCount = stations.filter((s) => s.summary.max_power >= 150).length
+  const ultraCount = liveStations.filter((s) => s.summary.max_power >= 150).length
 
   const snapshotLabel = updatedAt
     ? new Intl.DateTimeFormat('fr-FR', {
@@ -108,7 +114,7 @@ export function StatsBar({
           <span className="metric__label">Stations</span>
         </div>
 
-        {availability === 'all' && (
+        {availability === 'all' && hasLive && (
           <>
             <div className="metric">
               <span className="metric__value">{format(totalPdc)}</span>
@@ -123,7 +129,14 @@ export function StatsBar({
           </>
         )}
 
-        {availability === 'available' && (
+        {availability === 'all' && staticStations.length > 0 && (
+          <div className="metric">
+            <span className="metric__value">{format(staticPdc)}</span>
+            <span className="metric__label">PDC &lt; 50 kW</span>
+          </div>
+        )}
+
+        {availability === 'available' && hasLive && (
           <div className="metric">
             <span className="metric__value metric__value--accent">
               {format(availablePdc)}
@@ -132,7 +145,7 @@ export function StatsBar({
           </div>
         )}
 
-        {availability === 'full' && (
+        {availability === 'full' && hasLive && (
           <>
             <div className="metric">
               <span className="metric__value">{format(totalPdc)}</span>
@@ -147,7 +160,7 @@ export function StatsBar({
           </>
         )}
 
-        {availability === 'out_of_service' && (
+        {availability === 'out_of_service' && hasLive && (
           <>
             <div className="metric">
               <span className="metric__value">{format(totalPdc)}</span>
@@ -162,17 +175,19 @@ export function StatsBar({
           </>
         )}
 
-        <div className="metric">
-          <span className="metric__value">{format(ultraCount)}</span>
-          <span className="metric__label">Ultra-rapides</span>
-        </div>
+        {hasLive && (
+          <div className="metric">
+            <span className="metric__value">{format(ultraCount)}</span>
+            <span className="metric__label">Ultra-rapides</span>
+          </div>
+        )}
       </div>
 
       <div className="stats-bar__actions">
         <ThemeToggle theme={theme} onToggle={onToggleTheme} />
 
         <div className="stats-bar__updated">
-          {dataSource === 'live' ? (
+          {dataSource === 'live' || dataSource === 'mixed' ? (
             <>
               <span
                 className="stats-bar__live"
@@ -181,7 +196,23 @@ export function StatsBar({
                 <span className="stats-bar__live-dot" aria-hidden="true" />
                 Live
               </span>
+              {dataSource === 'mixed' && staticStations.length > 0 && (
+                <span className="stats-bar__stale" title="Couche statique sans dispo temps réel">
+                  + &lt; 50 kW
+                </span>
+              )}
               <strong>maj {liveLabel}</strong>
+            </>
+          ) : dataSource === 'transport-slow' ? (
+            <>
+              <span
+                className="stats-bar__stale"
+                title="Consolidation statique transport.data.gouv.fr (sans disponibilité temps réel)."
+              >
+                Statique
+              </span>
+              <span>Màj</span>
+              <strong>{loading ? '…' : snapshotLabel}</strong>
             </>
           ) : (
             <>
