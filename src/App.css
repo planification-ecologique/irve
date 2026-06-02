@@ -196,6 +196,9 @@
   margin-top: auto;
   padding-top: 0.75rem;
   border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .slow-switch {
@@ -387,12 +390,18 @@
   border-color: transparent;
 }
 
+.chip--p3 { color: #94a3b8; border-color: rgba(148, 163, 184, 0.35); }
+.chip--p7 { color: #a78bfa; border-color: rgba(167, 139, 250, 0.35); }
+.chip--p22 { color: #60a5fa; border-color: rgba(96, 165, 250, 0.35); }
 .chip--p50 { color: #38bdf8; border-color: rgba(56, 189, 248, 0.35); }
 .chip--p100 { color: #22d3ee; border-color: rgba(34, 211, 238, 0.35); }
 .chip--p150 { color: #22d3a5; border-color: rgba(34, 211, 165, 0.35); }
 .chip--p180 { color: #a3e635; border-color: rgba(163, 230, 53, 0.35); }
 .chip--p350 { color: #fbbf24; border-color: rgba(251, 191, 36, 0.35); }
 
+.chip--p3.chip--active { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
+.chip--p7.chip--active { background: rgba(167, 139, 250, 0.2); color: #a78bfa; }
+.chip--p22.chip--active { background: rgba(96, 165, 250, 0.2); color: #60a5fa; }
 .chip--p50.chip--active { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }
 .chip--p100.chip--active { background: rgba(34, 211, 238, 0.2); color: #22d3ee; }
 .chip--p150.chip--active { background: rgba(34, 211, 165, 0.2); color: #22d3a5; }
@@ -669,6 +678,11 @@
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+.power-badge--unknown {
+  background: var(--subtle-fill);
+  color: var(--text-muted);
 }
 
 .power-badge--p3 { background: rgba(148, 163, 184, 0.18); color: #94a3b8; }
@@ -1083,11 +1097,13 @@
 .map-popup__power,
 .map-popup__pdc,
 .map-popup__avail,
-.map-popup__none {
+.map-popup__none,
+.map-popup__nc {
   font-size: 0.6875rem;
-  padding: 0.125rem 0.375rem;
-  border-radius: 4px;
-  background: var(--subtle-fill);
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
 }
 
 .map-popup__power.power-badge--p3 { background: rgba(148, 163, 184, 0.18); color: #94a3b8; }
@@ -1102,16 +1118,25 @@
 .map-popup__none {
   color: #f87171;
   background: rgba(248, 113, 113, 0.15);
+  border-color: rgba(248, 113, 113, 0.35);
 }
 
 .map-popup__avail {
   color: var(--accent);
   background: var(--accent-dim);
+  border-color: rgba(34, 211, 165, 0.35);
+}
+
+.map-popup__power.power-badge--unknown {
+  color: var(--text-muted);
+  background: var(--subtle-fill);
+  border-color: var(--border);
 }
 
 .map-popup__nc {
   color: #a78bfa;
   background: rgba(167, 139, 250, 0.18);
+  border-color: rgba(167, 139, 250, 0.35);
 }
 
 /* MapLibre controls */

@@ -2,6 +2,10 @@ import { createReadStream, mkdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { createInterface } from 'node:readline'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  normalizeFranceCoords,
+  parseCoordonneesXY,
+} from './lib/france-coords.mjs'
 
 /** Consolidation dédoublonnée — transport.data.gouv.fr (schéma IRVE statique 2.3.1). */
 const CSV_URL =
@@ -83,6 +87,9 @@ async function fetchSlowStations() {
   const stations = new Map()
   let rowIndex = 0
   let slowPdcCount = 0
+  let swappedCoords = 0
+  let droppedOutsideFrance = 0
+  let droppedZeroPower = 0
 
   for await (const line of rl) {
     if (!line.trim()) continue
@@ -94,7 +101,11 @@ async function fetchSlowStations() {
 
     rowIndex++
     const power = Number.parseFloat(cols[headers.puissance_nominale])
-    if (!Number.isFinite(power) || power >= SLOW_MAX_POWER_KW) continue
+    if (!Number.isFinite(power) || power <= 0) {
+      droppedZeroPower++
+      continue
+    }
+    if (power >= SLOW_MAX_POWER_KW) continue
 
     slowPdcCount++
     const stationId = cols[headers.id_station_itinerance]
@@ -102,16 +113,24 @@ async function fetchSlowStations() {
 
     let station = stations.get(stationId)
     if (!station) {
-      const lat = Number.parseFloat(cols[headers.consolidated_latitude])
-      const lng = Number.parseFloat(cols[headers.consolidated_longitude])
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
+      const rawLat = Number.parseFloat(cols[headers.consolidated_latitude])
+      const rawLng = Number.parseFloat(cols[headers.consolidated_longitude])
+      let coords =
+        normalizeFranceCoords(rawLat, rawLng) ??
+        parseCoordonneesXY(cols[headers.coordonneesXY])
+
+      if (!coords) {
+        droppedOutsideFrance++
+        continue
+      }
+      if (coords.swapped) swappedCoords++
 
       station = {
         station_key: stationId,
         data_origin: 'transport-static',
         id: stations.size + 1,
-        lat,
-        lng,
+        lat: coords.lat,
+        lng: coords.lng,
         id_station_itinerance: stationId,
         nom_station: cols[headers.nom_station] ?? '',
         nom_amenageur: cols[headers.nom_amenageur] ?? '',
@@ -178,6 +197,15 @@ async function fetchSlowStations() {
   console.log(
     `Saved ${stationList.length} stations (${slowPdcCount} PDC < ${SLOW_MAX_POWER_KW} kW) → public/data/slow-stations.json`,
   )
+  if (swappedCoords > 0) {
+    console.log(`  ${swappedCoords.toLocaleString('fr-FR')} coordonnées lat/lng corrigées`)
+  }
+  if (droppedZeroPower > 0) {
+    console.log(`  ${droppedZeroPower.toLocaleString('fr-FR')} PDC ignorées (puissance ≤ 0 kW)`)
+  }
+  if (droppedOutsideFrance > 0) {
+    console.log(`  ${droppedOutsideFrance.toLocaleString('fr-FR')} stations hors France (coords invalides)`)
+  }
 }
 
 fetchSlowStations().catch((error) => {

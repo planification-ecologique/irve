@@ -6,6 +6,7 @@ import { stationsToGeoJSON } from '../lib/geojson'
 import { applyFrenchLabels, getCartoStyleUrl, MAP_LOCALE_FR, preserveStationStyle } from '../lib/mapStyle'
 import type { Theme } from '../lib/theme'
 import { clusterProperties, mixedClusterColor, mixedClusterOpacity, mixedPointColor, mixedPointOpacity } from '../lib/mapLayers'
+import { formatMaxPowerKw } from '../lib/formatPower'
 import { getPowerBadgeClass } from '../lib/power'
 import { getAvailabilityTone } from '../lib/stationDisplay'
 
@@ -223,7 +224,7 @@ export function IrveMap({ stations, selectedKey, onSelect, theme }: IrveMapProps
           <strong>${escapeHtml(props.nom_station)}</strong>
           <span>${escapeHtml(props.nom_operateur)}</span>
           <div class="map-popup__row">
-            <span class="map-popup__power ${powerClass}">${props.max_power} kW</span>
+            <span class="map-popup__power ${powerClass}">${formatMaxPowerKw(props.max_power)}</span>
             ${availHtml}
           </div>
         </div>

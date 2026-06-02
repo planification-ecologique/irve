@@ -1,7 +1,9 @@
 import type { ConnectorType } from '../types/irve'
 
+export type ConnectorIconType = ConnectorType | 'autre'
+
 interface ConnectorIconProps {
-  type: ConnectorType
+  type: ConnectorIconType
   size?: number
 }
 
@@ -62,6 +64,21 @@ export function ConnectorIcon({ type, size = 28 }: ConnectorIconProps) {
           <circle cx="13" cy="17" r="2.2" fill="currentColor" />
           <circle cx="19" cy="17" r="2.2" fill="currentColor" />
           <rect x="14.5" y="21" width="3" height="2.5" rx="0.5" fill="currentColor" />
+        </svg>
+      )
+    case 'autre':
+      return (
+        <svg {...common}>
+          <rect x="9" y="8" width="14" height="18" rx="3" stroke="currentColor" strokeWidth="2" />
+          <circle cx="13" cy="14" r="1.5" fill="currentColor" />
+          <circle cx="19" cy="14" r="1.5" fill="currentColor" />
+          <circle cx="16" cy="19" r="1.5" fill="currentColor" />
+          <path
+            d="M12 26h8"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
         </svg>
       )
   }

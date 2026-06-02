@@ -47,6 +47,8 @@ npm run fetch:slow   # télécharge le CSV PAN (~111 Mo), filtre <50 kW, supprim
 
 Sans ce fichier, le toggle « bornes lentes » affiche une erreur au chargement. Le CSV consolidé brut n’est jamais commité.
 
+Le script corrige les coordonnées lat/lng inversées (hors-emprise France → permutation) et ignore les PDC avec `puissance_nominale` ≤ 0.
+
 En dev, Vite proxy la même route vers QualiCharge.
 
 ## Déploiement Firebase

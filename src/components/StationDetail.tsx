@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Station } from '../types/irve'
 import { isStaticStation } from '../lib/stationOrigin'
+import { formatMaxPowerKw } from '../lib/formatPower'
 import { getPowerBadgeClass } from '../lib/power'
 import { CONNECTOR_TYPES, CONNECTOR_META, stationHasConnector } from '../lib/connectors'
 import {
@@ -136,7 +137,7 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
 
       <div className="station-detail__stats">
         <div className={`stat-card stat-card--power ${powerClass}`}>
-          <span className="stat-card__value">{summary.max_power} kW</span>
+          <span className="stat-card__value">{formatMaxPowerKw(summary.max_power)}</span>
           <span className="stat-card__label">Puissance max</span>
         </div>
         {!staticOnly ? (

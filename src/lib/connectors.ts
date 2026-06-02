@@ -19,7 +19,7 @@ export const CONNECTOR_TYPES: ConnectorType[] = ['ccs', 'type2', 'chademo', 'ef'
 export const CONNECTOR_FILTER_TYPES: ConnectorType[] = ['ccs', 'chademo', 'ef']
 
 /** Certains opérateurs (ex. Izivia) taguent le DC en T2 sans flag CCS. */
-function isMisTaggedDcOnly(summary: StationSummary): boolean {
+export function isMisTaggedDcOnly(summary: StationSummary): boolean {
   return (
     summary.max_power > TYPE2_MAX_POWER_KW &&
     summary.has_prise_type_2 &&

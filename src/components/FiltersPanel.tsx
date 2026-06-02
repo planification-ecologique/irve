@@ -3,7 +3,10 @@ import type { Station, ConnectorType } from '../types/irve'
 import { TRANSPORT_IRVE_DATASET_URL, SLOW_MAX_POWER_KW } from '../api/transportIrve'
 import {
   MIN_POWER_THRESHOLDS,
+  SLOW_ONLY_MIN_POWER,
   getPowerThresholdClass,
+  getSlowPowerThresholdClass,
+  isSlowOnlyPowerFilter,
   POWER_LABELS,
 } from '../lib/power'
 import { CONNECTOR_META, CONNECTOR_FILTER_TYPES, stationHasConnector } from '../lib/connectors'
@@ -47,29 +50,46 @@ export const defaultFilters: FilterState = {
   availability: 'all',
 }
 
-export function countActiveFilters(filters: FilterState, includeSlow = false): number {
+export function countActiveFilters(
+  filters: FilterState,
+  addSlowLayer = false,
+): number {
   let count = 0
-  if (includeSlow) count++
+  if (addSlowLayer) count++
   if (filters.search.trim()) count++
   if (filters.operator) count++
-  if (filters.minPower !== defaultFilters.minPower) count++
+  if (isSlowOnlyPowerFilter(filters.minPower) || filters.minPower !== defaultFilters.minPower) {
+    count++
+  }
   if (filters.connector) count++
-  if (filters.availability !== defaultFilters.availability) count++
+  if (!isSlowOnlyPowerFilter(filters.minPower) && filters.availability !== defaultFilters.availability) {
+    count++
+  }
   return count
 }
 
-export function useFilteredStations(stations: Station[] | undefined, includeSlow = false) {
-  const [filters, setFilters] = useState<FilterState>(defaultFilters)
+export function useFilterState() {
+  return useState<FilterState>(defaultFilters)
+}
 
-  const filtered = useMemo(() => {
-    if (!stations) return []
+export function filterStations(
+  stations: Station[] | undefined,
+  filters: FilterState,
+  addSlowLayer: boolean,
+): Station[] {
+  if (!stations) return []
 
-    const query = filters.search.trim().toLowerCase()
+  const query = filters.search.trim().toLowerCase()
+  const slowOnlyView = isSlowOnlyPowerFilter(filters.minPower)
+  const includeSlow = addSlowLayer || slowOnlyView
 
-    return stations.filter((station) => {
+  return stations.filter((station) => {
       const isStatic = isStaticStation(station)
 
-      if (isStatic) {
+      if (slowOnlyView) {
+        if (!includeSlow || !isStatic) return false
+        if (station.summary.max_power >= SLOW_MAX_POWER_KW) return false
+      } else if (isStatic) {
         if (!includeSlow) return false
         if (station.summary.max_power >= SLOW_MAX_POWER_KW) return false
       } else {
@@ -79,7 +99,7 @@ export function useFilteredStations(stations: Station[] | undefined, includeSlow
 
       if (!stationMatchesOperator(station, filters.operator)) return false
 
-      const connectorMinPower = isStatic ? 0 : filters.minPower
+      const connectorMinPower = isStatic || slowOnlyView ? 0 : filters.minPower
       if (filters.connector && !stationHasConnector(station.summary, filters.connector, connectorMinPower)) {
         return false
       }
@@ -98,9 +118,17 @@ export function useFilteredStations(stations: Station[] | undefined, includeSlow
 
       return true
     })
-  }, [stations, filters, includeSlow])
+}
 
-  return { filters, setFilters, filtered }
+export function useFilteredStations(
+  stations: Station[] | undefined,
+  filters: FilterState,
+  addSlowLayer: boolean,
+) {
+  return useMemo(
+    () => filterStations(stations, filters, addSlowLayer),
+    [stations, filters, addSlowLayer],
+  )
 }
 
 interface FiltersPanelProps {
@@ -109,9 +137,9 @@ interface FiltersPanelProps {
   stations: Station[]
   totalCount: number
   filteredCount: number
-  includeSlow: boolean
+  addSlowLayer: boolean
   slowLoading: boolean
-  onIncludeSlowChange: (enabled: boolean) => void
+  onAddSlowLayerChange: (enabled: boolean) => void
 }
 
 export function FiltersPanel({
@@ -120,9 +148,9 @@ export function FiltersPanel({
   stations,
   totalCount,
   filteredCount,
-  includeSlow,
+  addSlowLayer,
   slowLoading,
-  onIncludeSlowChange,
+  onAddSlowLayerChange,
 }: FiltersPanelProps) {
   const [outOfServiceHintOpen, setOutOfServiceHintOpen] = useState(false)
   const operatorOptions = useMemo(
@@ -181,20 +209,28 @@ export function FiltersPanel({
 
       <div className="field">
         <span>Puissance min.</span>
-          <div className="chip-group">
-            {MIN_POWER_THRESHOLDS.map((threshold) => (
-              <button
-                key={threshold}
-                type="button"
-                className={`chip ${getPowerThresholdClass(threshold)}${filters.minPower === threshold ? ' chip--active' : ''}`}
-                onClick={() => onChange({ ...filters, minPower: threshold })}
-                title={POWER_LABELS[threshold]}
-              >
-                ≥{threshold} kW
-              </button>
-            ))}
-          </div>
+        <div className="chip-group">
+          {MIN_POWER_THRESHOLDS.map((threshold) => (
+            <button
+              key={threshold}
+              type="button"
+              className={`chip ${getPowerThresholdClass(threshold)}${filters.minPower === threshold ? ' chip--active' : ''}`}
+              onClick={() => onChange({ ...filters, minPower: threshold })}
+              title={POWER_LABELS[threshold]}
+            >
+              ≥{threshold} kW
+            </button>
+          ))}
+          <button
+            type="button"
+            className={`chip ${getSlowPowerThresholdClass(22)}${isSlowOnlyPowerFilter(filters.minPower) ? ' chip--active' : ''}`}
+            onClick={() => onChange({ ...filters, minPower: SLOW_ONLY_MIN_POWER })}
+            title={`Bornes statiques uniquement (< ${SLOW_MAX_POWER_KW} kW, transport.data.gouv.fr)`}
+          >
+            &lt; {SLOW_MAX_POWER_KW} kW
+          </button>
         </div>
+      </div>
 
       <div className="field">
         <span>Connecteurs</span>
@@ -220,6 +256,7 @@ export function FiltersPanel({
         </div>
       </div>
 
+      {!isSlowOnlyPowerFilter(filters.minPower) && (
       <div className="field">
         <span>Disponibilité</span>
         <div className="chip-group chip-group--availability">
@@ -259,16 +296,17 @@ export function FiltersPanel({
           <p className="field__hint field__hint--info">{AVAILABILITY_OPTIONS.find((o) => o.hint)?.hint}</p>
         )}
       </div>
+      )}
 
       <div className="filters-panel__footer">
         <button
           type="button"
-          className={`slow-switch${includeSlow ? ' slow-switch--on' : ''}`}
+          className={`slow-switch${addSlowLayer ? ' slow-switch--on' : ''}`}
           role="switch"
-          aria-checked={includeSlow}
+          aria-checked={addSlowLayer}
           disabled={slowLoading}
           title={TRANSPORT_IRVE_DATASET_URL}
-          onClick={() => onIncludeSlowChange(!includeSlow)}
+          onClick={() => onAddSlowLayerChange(!addSlowLayer)}
         >
           <span className="slow-switch__track" aria-hidden="true">
             <span className="slow-switch__thumb" />

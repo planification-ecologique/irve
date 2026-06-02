@@ -1,12 +1,19 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useIrveData } from './hooks/useIrveData'
 import { useSlowIrveData } from './hooks/useSlowIrveData'
 import { useTheme } from './hooks/useTheme'
-import { countActiveFilters, useFilteredStations } from './components/FiltersPanel'
+import {
+  countActiveFilters,
+  useFilterState,
+  useFilteredStations,
+} from './components/FiltersPanel'
+import { AnalyticsPage } from './components/AnalyticsPage'
 import { IrveMap } from './components/IrveMap'
 import { StatsBar } from './components/StatsBar'
+import { isAnalyticsPath } from './lib/routes'
 import { FiltersPanel } from './components/FiltersPanel'
 import { StationDetail } from './components/StationDetail'
+import { isSlowOnlyPowerFilter } from './lib/power'
 import { mergeStationLists } from './lib/stationOrigin'
 import type { Station } from './types/irve'
 import type { IrveDataSource } from './api/irve'
@@ -14,17 +21,22 @@ import './App.css'
 
 function App() {
   const { theme, toggleTheme } = useTheme()
-  const [includeSlow, setIncludeSlow] = useState(false)
+  const [addSlowLayer, setAddSlowLayer] = useState(false)
+  const [filters, setFilters] = useFilterState()
 
   const { data: liveData, dataSource: liveSource, lastFetchedAt, loading: liveLoading, error: liveError, refetch } =
     useIrveData()
-  const { data: slowData, loading: slowLoading, error: slowError } = useSlowIrveData(includeSlow)
+
+  const includeSlowData = addSlowLayer || isSlowOnlyPowerFilter(filters.minPower)
+  const { data: slowData, loading: slowLoading, error: slowError } = useSlowIrveData(includeSlowData)
 
   const mergedStations = useMemo(() => {
     const live = liveData?.stations ?? []
-    const slow = includeSlow ? (slowData?.stations ?? []) : []
+    const slow = includeSlowData ? (slowData?.stations ?? []) : []
     return mergeStationLists(live, slow)
-  }, [liveData, slowData, includeSlow])
+  }, [liveData, slowData, includeSlowData])
+
+  const filtered = useFilteredStations(mergedStations, filters, addSlowLayer)
 
   const data = useMemo(() => {
     if (!liveData && !slowData) return null
@@ -33,20 +45,29 @@ function App() {
   }, [liveData, slowData, mergedStations])
 
   const dataSource: IrveDataSource | null = useMemo(() => {
-    if (includeSlow && liveSource) {
+    if (isSlowOnlyPowerFilter(filters.minPower) && !liveData) return 'transport-slow'
+    if (includeSlowData && liveSource) {
       return liveSource === 'live' ? 'mixed' : liveSource
     }
     return liveSource
-  }, [includeSlow, liveSource])
+  }, [includeSlowData, liveSource, filters.minPower, liveData])
 
   const loading = liveLoading && !liveData
   const error = liveError
-  const { filters, setFilters, filtered } = useFilteredStations(mergedStations, includeSlow)
   const [selected, setSelected] = useState<Station | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [pathname, setPathname] = useState(() => window.location.pathname)
 
-  const handleIncludeSlowChange = useCallback((enabled: boolean) => {
-    setIncludeSlow(enabled)
+  useEffect(() => {
+    const onPopState = () => setPathname(window.location.pathname)
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  const isAnalytics = isAnalyticsPath(pathname)
+
+  const handleAddSlowLayerChange = useCallback((enabled: boolean) => {
+    setAddSlowLayer(enabled)
     setSelected(null)
   }, [])
 
@@ -55,7 +76,21 @@ function App() {
     if (station) setFiltersOpen(false)
   }, [])
 
-  const activeFilterCount = countActiveFilters(filters, includeSlow)
+  const activeFilterCount = countActiveFilters(filters, addSlowLayer)
+
+  if (isAnalytics) {
+    return (
+      <AnalyticsPage
+        liveStations={liveData?.stations ?? []}
+        liveLoading={loading}
+        liveDataSource={liveSource}
+        updatedAt={liveData?.updatedAt ?? slowData?.updatedAt ?? null}
+        lastFetchedAt={lastFetchedAt}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
+    )
+  }
 
   return (
     <div className="app">
@@ -89,9 +124,9 @@ function App() {
             stations={mergedStations}
             totalCount={mergedStations.length}
             filteredCount={filtered.length}
-            includeSlow={includeSlow}
+            addSlowLayer={addSlowLayer}
             slowLoading={slowLoading}
-            onIncludeSlowChange={handleIncludeSlowChange}
+            onAddSlowLayerChange={handleAddSlowLayerChange}
           />
 
           <p className="sidebar__source">
@@ -103,7 +138,7 @@ function App() {
             >
               QualiCharge
             </a>
-            {includeSlow && (
+            {includeSlowData && (
               <>
                 {' '}
                 ·{' '}
@@ -141,7 +176,7 @@ function App() {
               <span className="filters-toggle__badge">{activeFilterCount}</span>
             )}
           </button>
-          {includeSlow && slowError && (
+          {includeSlowData && slowError && (
             <div className="map-overlay map-overlay--error">
               <p>{slowError}</p>
             </div>
@@ -155,10 +190,17 @@ function App() {
             </div>
           )}
 
-          {loading && !liveData && (
+          {loading && !liveData && !isSlowOnlyPowerFilter(filters.minPower) && (
             <div className="map-overlay map-overlay--loading">
               <div className="spinner" />
               <p>Chargement des stations IRVE…</p>
+            </div>
+          )}
+
+          {slowLoading && isSlowOnlyPowerFilter(filters.minPower) && !slowData && (
+            <div className="map-overlay map-overlay--loading">
+              <div className="spinner" />
+              <p>Chargement des bornes lentes…</p>
             </div>
           )}
 

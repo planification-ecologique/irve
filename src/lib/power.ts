@@ -1,3 +1,10 @@
+/** Valeur de `minPower` pour n’afficher que les bornes statiques &lt; 50 kW. */
+export const SLOW_ONLY_MIN_POWER = 0
+
+export function isSlowOnlyPowerFilter(minPower: number): boolean {
+  return minPower === SLOW_ONLY_MIN_POWER
+}
+
 export const SLOW_POWER_THRESHOLDS = [3, 7, 22] as const
 
 export type SlowPowerThreshold = (typeof SLOW_POWER_THRESHOLDS)[number]
@@ -6,6 +13,16 @@ export const SLOW_POWER_COLORS: Record<SlowPowerThreshold, string> = {
   3: '#94a3b8',
   7: '#a78bfa',
   22: '#60a5fa',
+}
+
+export const SLOW_POWER_LABELS: Record<SlowPowerThreshold, string> = {
+  3: '3–6 kW',
+  7: '7–21 kW',
+  22: '22–49 kW',
+}
+
+export function getSlowPowerThresholdClass(threshold: SlowPowerThreshold): string {
+  return `chip--p${threshold}`
 }
 
 export const MIN_POWER_THRESHOLDS = [50, 100, 150, 180, 350] as const
@@ -48,6 +65,7 @@ export function getPowerThresholdClass(threshold: PowerThreshold): string {
 }
 
 export function getPowerBadgeClass(maxPower: number): string {
+  if (!Number.isFinite(maxPower) || maxPower <= 0) return 'power-badge--unknown'
   if (maxPower >= 350) return 'power-badge--p350'
   if (maxPower >= 180) return 'power-badge--p180'
   if (maxPower >= 150) return 'power-badge--p150'
