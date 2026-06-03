@@ -1,3 +1,4 @@
+import { formatOperatorPhoneDisplay } from './operatorContact'
 import type { StationDetail } from '../types/irve'
 
 export function formatPaymentMethods(detail: StationDetail): string | null {
@@ -9,6 +10,5 @@ export function formatPaymentMethods(detail: StationDetail): string | null {
 }
 
 export function formatOperatorPhone(telephone: string | null): string | null {
-  if (!telephone?.trim()) return null
-  return telephone.replace(/^tel:/, '').replace(/\+33-/g, '0').replace(/-/g, ' ')
+  return formatOperatorPhoneDisplay(telephone)
 }

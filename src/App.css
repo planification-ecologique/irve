@@ -862,6 +862,19 @@
   color: #f87171;
 }
 
+.station-detail__contact-warn {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.12);
+}
+
 .station-detail__meta div {
   display: grid;
   gap: 0.125rem;

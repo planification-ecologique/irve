@@ -37,6 +37,16 @@
   max-width: 42rem;
 }
 
+.analytics-page__hint {
+  margin: 0 0 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.analytics-page__hint code {
+  font-size: 0.75rem;
+}
+
 .analytics-page__error {
   margin: -0.75rem 0 1rem;
   padding: 0.65rem 0.875rem;
@@ -188,6 +198,10 @@
 
 .analytics-kpi__value--muted {
   color: var(--text-muted);
+}
+
+.analytics-kpi__value--danger {
+  color: #ef4444;
 }
 
 .analytics-kpi__label {
