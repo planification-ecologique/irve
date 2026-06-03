@@ -36,6 +36,7 @@ import { isSuspiciousOperatorContact } from '../lib/operatorContact'
 import { formatOperatorPhone, formatPaymentMethods } from '../lib/stationDetailDisplay'
 import { getStationOperatorTariffHeadline } from '../data/operatorTariffs'
 import { ConnectorIcon } from './ConnectorIcon'
+import { FeedbackForm } from './FeedbackForm'
 
 interface StationDetailProps {
   station: Station
@@ -52,6 +53,7 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
   const [navPickerOpen, setNavPickerOpen] = useState(false)
   const [savedProvider, setSavedProvider] = useState(getStoredNavigationProvider)
   const [copied, setCopied] = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
   const navAppRef = useRef<HTMLDivElement>(null)
   const { detail, loading: detailLoading } = useStationDetail(
     station.id_station_itinerance,
@@ -340,7 +342,23 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
         </div>
       )}
 
+      <button
+        type="button"
+        className="station-detail__report"
+        onClick={() => setFeedbackOpen(true)}
+      >
+        Signaler un problème
+      </button>
+
       <p className="station-detail__id">{station.id_station_itinerance}</p>
+
+      {feedbackOpen && (
+        <FeedbackForm
+          stationId={station.id_station_itinerance}
+          stationName={name}
+          onClose={() => setFeedbackOpen(false)}
+        />
+      )}
     </aside>
   )
 }

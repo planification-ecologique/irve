@@ -13,6 +13,7 @@ import { StatsBar } from './components/StatsBar'
 import { isAnalyticsPath } from './lib/routes'
 import { FiltersPanel } from './components/FiltersPanel'
 import { StationDetail } from './components/StationDetail'
+import { FeedbackForm } from './components/FeedbackForm'
 import { isSlowOnlyPowerFilter } from './lib/power'
 import { mergeStationLists } from './lib/stationOrigin'
 import type { Station } from './types/irve'
@@ -56,6 +57,7 @@ function App() {
   const error = liveError
   const [selected, setSelected] = useState<Station | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [pathname, setPathname] = useState(() => window.location.pathname)
 
   useEffect(() => {
@@ -216,8 +218,19 @@ function App() {
           {selected && (
             <StationDetail station={selected} onClose={() => handleSelect(null)} />
           )}
+
+          <button
+            type="button"
+            className="feedback-fab"
+            onClick={() => setFeedbackOpen(true)}
+            title="Signaler un problème"
+          >
+            Signaler un problème
+          </button>
         </div>
       </main>
+
+      {feedbackOpen && <FeedbackForm onClose={() => setFeedbackOpen(false)} />}
     </div>
   )
 }
