@@ -463,18 +463,36 @@ export function AnalyticsPage({
                   {formatInt(analytics.liveAvailability.occupied, loading)}
                 </span>
                 <span className="analytics-kpi__label">PDC occupées</span>
+                <span className="analytics-kpi__pct">
+                  {formatAnalyticsPercent(
+                    analytics.liveAvailability.occupied,
+                    analytics.liveAvailability.totalPdc,
+                  )}
+                </span>
               </article>
               <article className="analytics-kpi analytics-kpi--compact">
                 <span className="analytics-kpi__value">
                   {formatInt(analytics.liveAvailability.reserved, loading)}
                 </span>
                 <span className="analytics-kpi__label">PDC réservées</span>
+                <span className="analytics-kpi__pct">
+                  {formatAnalyticsPercent(
+                    analytics.liveAvailability.reserved,
+                    analytics.liveAvailability.totalPdc,
+                  )}
+                </span>
               </article>
               <article className="analytics-kpi analytics-kpi--compact">
                 <span className="analytics-kpi__value analytics-kpi__value--muted">
                   {formatInt(analytics.liveAvailability.outOfService, loading)}
                 </span>
                 <span className="analytics-kpi__label">PDC hors service</span>
+                <span className="analytics-kpi__pct">
+                  {formatAnalyticsPercent(
+                    analytics.liveAvailability.outOfService,
+                    analytics.liveAvailability.totalPdc,
+                  )}
+                </span>
               </article>
             </div>
           </section>
