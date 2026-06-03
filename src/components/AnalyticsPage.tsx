@@ -361,6 +361,7 @@ export function AnalyticsPage({
         dataSource={dataSource}
         theme={theme}
         onToggleTheme={onToggleTheme}
+        activePage="analytics"
       />
 
       <div className="analytics-page">
@@ -583,10 +584,10 @@ export function AnalyticsPage({
 
             {anomalyWarnings.length > 0 && (
               <div className="analytics-panel__section analytics-panel__section--divider">
-                <h3>Connecteurs incohérents</h3>
+                <h3>Incohérences détectées</h3>
                 <p className="analytics-panel__hint">
-                  Fiches avec combinaison prise / puissance suspecte · suit l’unité des graphiques (
-                  {metricLabel})
+                  Libellés <code>nom_operateur</code> en double, combinaisons prise / puissance
+                  suspectes · unité : {metricLabel}
                 </p>
                 <div className="analytics-bars analytics-bars--anomalies">
                   {sortedAnomalyWarnings.map((warning) => (
@@ -716,8 +717,8 @@ export function AnalyticsPage({
           <section className="analytics-warnings" aria-label="Anomalies dans les données">
             <h3>Anomalies dans les données</h3>
             <p className="analytics-warnings__intro">
-              Incohérences possibles dans les fiches source QualiCharge (connecteurs, contacts
-              opérateur).
+              Incohérences possibles dans les fiches source QualiCharge (libellés opérateur,
+              connecteurs, contacts).
             </p>
             <ul className="analytics-warnings__list">
               {contactWarnings.map((warning) => (

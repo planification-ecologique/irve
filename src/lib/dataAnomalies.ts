@@ -33,6 +33,53 @@ export function anomalyMetricValue(
   return metric === 'stations' ? warning.stations : warning.pdc
 }
 
+function operatorNameDuplicateWarnings(stations: Station[]): DataAnomalyWarning[] {
+  const groups = new Map<string, Map<string, AnomalyBucket>>()
+
+  for (const station of stations) {
+    const raw = station.nom_operateur?.trim()
+    if (!raw) continue
+    const key = raw.toLowerCase()
+    let spellings = groups.get(key)
+    if (!spellings) {
+      spellings = new Map()
+      groups.set(key, spellings)
+    }
+    const bucket = spellings.get(raw) ?? emptyBucket()
+    addStation(bucket, station)
+    spellings.set(raw, bucket)
+  }
+
+  const warnings: DataAnomalyWarning[] = []
+
+  for (const spellings of groups.values()) {
+    if (spellings.size < 2) continue
+
+    const variants = [...spellings.entries()].sort((a, b) => b[1].stations - a[1].stations)
+    const total = variants.reduce(
+      (acc, [, bucket]) => ({
+        stations: acc.stations + bucket.stations,
+        pdc: acc.pdc + bucket.pdc,
+      }),
+      { stations: 0, pdc: 0 },
+    )
+    const detail = variants
+      .map(([name, bucket]) => `« ${name} » (${bucket.stations} sta., ${bucket.pdc} PDC)`)
+      .join(' · ')
+
+    const canonical = variants[0][0]
+    warnings.push({
+      id: `operator-name-dupe-${canonical.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      title: `Doublon nom_operateur : ${canonical}`,
+      description: `Plusieurs libellés QualiCharge pour le même opérateur : ${detail}. À unifier côté source pour les stats et les tarifs.`,
+      stations: total.stations,
+      pdc: total.pdc,
+    })
+  }
+
+  return warnings.sort((a, b) => b.stations - a.stations)
+}
+
 export function computeDataAnomalyWarnings(stations: Station[]): DataAnomalyWarning[] {
   const type2Ge50 = emptyBucket()
   const type2OverAc = emptyBucket()
@@ -110,7 +157,7 @@ export function computeDataAnomalyWarnings(stations: Station[]): DataAnomalyWarn
     },
   ]
 
-  return defs
+  const connectorWarnings = defs
     .filter(({ bucket }) => bucket.stations > 0)
     .map(({ id, title, description, bucket }) => ({
       id,
@@ -119,4 +166,6 @@ export function computeDataAnomalyWarnings(stations: Station[]): DataAnomalyWarn
       stations: bucket.stations,
       pdc: bucket.pdc,
     }))
+
+  return [...operatorNameDuplicateWarnings(stations), ...connectorWarnings]
 }

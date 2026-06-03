@@ -10,7 +10,8 @@ import {
 import { AnalyticsPage } from './components/AnalyticsPage'
 import { IrveMap } from './components/IrveMap'
 import { StatsBar } from './components/StatsBar'
-import { isAnalyticsPath } from './lib/routes'
+import { TariffsPage } from './components/TariffsPage'
+import { getAppPage, isAnalyticsPath, isTariffsPath } from './lib/routes'
 import { FiltersPanel } from './components/FiltersPanel'
 import { StationDetail } from './components/StationDetail'
 import { isSlowOnlyPowerFilter } from './lib/power'
@@ -65,6 +66,8 @@ function App() {
   }, [])
 
   const isAnalytics = isAnalyticsPath(pathname)
+  const isTariffs = isTariffsPath(pathname)
+  const activePage = getAppPage(pathname)
 
   const handleAddSlowLayerChange = useCallback((enabled: boolean) => {
     setAddSlowLayer(enabled)
@@ -92,6 +95,17 @@ function App() {
     )
   }
 
+  if (isTariffs) {
+    return (
+      <TariffsPage
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        stations={mergedStations}
+        loading={loading}
+      />
+    )
+  }
+
   return (
     <div className="app">
       <StatsBar
@@ -103,6 +117,7 @@ function App() {
         dataSource={dataSource}
         theme={theme}
         onToggleTheme={toggleTheme}
+        activePage={activePage}
       />
 
       <main className="app__main">

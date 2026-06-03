@@ -5,6 +5,8 @@ import type { Theme } from '../lib/theme'
 import type { Station } from '../types/irve'
 import { isStaticStation } from '../lib/stationOrigin'
 import type { AvailabilityFilter } from '../lib/stations'
+import type { AppPage } from '../lib/routes'
+import { AppNav } from './AppNav'
 import { ThemeToggle } from './ThemeToggle'
 
 interface StatsBarProps {
@@ -16,6 +18,7 @@ interface StatsBarProps {
   dataSource: IrveDataSource | null
   theme: Theme
   onToggleTheme: () => void
+  activePage?: AppPage
 }
 
 export function StatsBar({
@@ -27,6 +30,7 @@ export function StatsBar({
   dataSource,
   theme,
   onToggleTheme,
+  activePage = 'map',
 }: StatsBarProps) {
   const [, setNowTick] = useState(0)
 
@@ -105,6 +109,7 @@ export function StatsBar({
         <div>
           <h1>Carto IRVE</h1>
           <p>Infrastructure de recharge électrique en itiniérance — France</p>
+          <AppNav active={activePage} />
         </div>
       </div>
 
