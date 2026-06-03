@@ -93,8 +93,13 @@ export function FeedbackForm({ stationId, stationName, onClose }: FeedbackFormPr
           ×
         </button>
 
-        <h2 className="feedback-modal__title">Signaler un problème</h2>
-        {stationName && <p className="feedback-modal__station">{stationName}</p>}
+        <header className="feedback-modal__header">
+          <h2 className="feedback-modal__title">Signaler un problème</h2>
+          <p className="feedback-modal__subtitle">
+            Donnée incorrecte, bug ou idée d'amélioration — dites-nous ce qui ne va pas.
+          </p>
+          {stationName && <p className="feedback-modal__station">{stationName}</p>}
+        </header>
 
         {status === 'success' ? (
           <div className="feedback-modal__success">
@@ -148,6 +153,9 @@ export function FeedbackForm({ stationId, stationName, onClose }: FeedbackFormPr
                 onChange={(event) => setComment(event.target.value)}
                 required
               />
+              <span className="feedback-form__char-count" aria-live="polite">
+                {comment.length}/2000
+              </span>
             </label>
 
             <label className="field">
