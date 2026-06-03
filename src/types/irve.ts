@@ -71,6 +71,8 @@ export interface Station {
   pdc_count: number
   pdc_itinerance_ids: string[]
   has_tarification: boolean
+  /** Renseigné sur snapshot enrichi ou fiche détail ; absent sur `/api/irve/points/` live. */
+  telephone_operateur?: string | null
   summary: StationSummary
   dynamic_summary: DynamicSummary
 }

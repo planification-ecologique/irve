@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { IrveDataSource } from '../api/irve'
 import { TRANSPORT_IRVE_DATASET_URL, SLOW_MAX_POWER_KW } from '../api/transportIrve'
 import { useSlowIrveData } from '../hooks/useSlowIrveData'
+import { useStationContactCache } from '../hooks/useStationContactCache'
 import {
   ANALYTICS_POWER_BUCKETS,
   bucketMetricValue,
@@ -16,8 +17,15 @@ import {
   type OperatorStats,
 } from '../lib/analytics'
 import { CONNECTOR_META } from '../lib/connectors'
-import { computeDataAnomalyWarnings } from '../lib/dataAnomalies'
-import { mergeStationLists } from '../lib/stationOrigin'
+import {
+  contactMetricValue,
+  computeContactAnomalyWarnings,
+} from '../lib/contactAnomalies'
+import {
+  anomalyMetricValue,
+  computeDataAnomalyWarnings,
+} from '../lib/dataAnomalies'
+import { isStaticStation, mergeStationLists } from '../lib/stationOrigin'
 import type { Theme } from '../lib/theme'
 import type { Station } from '../types/irve'
 import { ConnectorIcon, type ConnectorIconType } from './ConnectorIcon'
@@ -197,7 +205,14 @@ export function AnalyticsPage({
 
   const analytics = useMemo(() => computeIrveAnalytics(stations), [stations])
 
+  const contactByKey = useStationContactCache(true)
+
   const anomalyWarnings = useMemo(() => computeDataAnomalyWarnings(stations), [stations])
+
+  const contactWarnings = useMemo(
+    () => computeContactAnomalyWarnings(stations, contactByKey ?? null),
+    [stations, contactByKey],
+  )
 
   const sortedOperators = useMemo(
     () =>
@@ -293,6 +308,35 @@ export function AnalyticsPage({
     connectorMetricValue(analytics.connectors.autre, chartMetric),
     1,
   )
+
+  const sortedAnomalyWarnings = useMemo(
+    () =>
+      [...anomalyWarnings].sort(
+        (a, b) => anomalyMetricValue(b, chartMetric) - anomalyMetricValue(a, chartMetric),
+      ),
+    [anomalyWarnings, chartMetric],
+  )
+
+  const maxAnomaly = sortedAnomalyWarnings[0]
+    ? anomalyMetricValue(sortedAnomalyWarnings[0], chartMetric)
+    : 1
+
+  const sortedContactWarnings = useMemo(
+    () =>
+      [...contactWarnings].sort(
+        (a, b) => contactMetricValue(b, chartMetric) - contactMetricValue(a, chartMetric),
+      ),
+    [contactWarnings, chartMetric],
+  )
+
+  const contactEligibleTotal = useMemo(() => {
+    const live = stations.filter((station) => !isStaticStation(station))
+    return chartMetric === 'stations'
+      ? live.length
+      : live.reduce((sum, station) => sum + station.pdc_count, 0)
+  }, [stations, chartMetric])
+
+  const contactCacheReady = contactByKey !== undefined
 
   const uniqueOperators = useMemo(() => {
     const set = new Set(stations.map((s) => s.nom_operateur.trim() || 'Non renseigné'))
@@ -536,19 +580,34 @@ export function AnalyticsPage({
                 ))}
               </div>
             </div>
+
+            {anomalyWarnings.length > 0 && (
+              <div className="analytics-panel__section analytics-panel__section--divider">
+                <h3>Connecteurs incohérents</h3>
+                <p className="analytics-panel__hint">
+                  Fiches avec combinaison prise / puissance suspecte · suit l’unité des graphiques (
+                  {metricLabel})
+                </p>
+                <div className="analytics-bars analytics-bars--anomalies">
+                  {sortedAnomalyWarnings.map((warning) => (
+                    <BarRow
+                      key={warning.id}
+                      label={warning.title}
+                      value={anomalyMetricValue(warning, chartMetric)}
+                      max={maxAnomaly}
+                      color="#f59e0b"
+                      loading={loading}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
         </div>
 
         <section className="analytics-panel" aria-label="Services et accès">
             <h3>Services &amp; accès</h3>
             <div className="analytics-grid analytics-grid--services">
-              <article className="analytics-kpi analytics-kpi--compact">
-                <span className="analytics-kpi__value">{formatInt(analytics.withTarification, loading)}</span>
-                <span className="analytics-kpi__label">Avec tarification</span>
-                <span className="analytics-kpi__pct">
-                  {formatAnalyticsPercent(analytics.withTarification, analytics.totalStations)}
-                </span>
-              </article>
               <article className="analytics-kpi analytics-kpi--compact">
                 <span className="analytics-kpi__value">{formatInt(analytics.gratuit, loading)}</span>
                 <span className="analytics-kpi__label">Gratuites</span>
@@ -565,7 +624,42 @@ export function AnalyticsPage({
                 <span className="analytics-kpi__value">{formatInt(analytics.deuxRoues, loading)}</span>
                 <span className="analytics-kpi__label">Deux-roues</span>
               </article>
+              <article className="analytics-kpi analytics-kpi--compact">
+                <span className="analytics-kpi__value analytics-kpi__value--danger">
+                  {formatInt(analytics.withTarification, loading)}
+                </span>
+                <span className="analytics-kpi__label">Avec tarification</span>
+                <span className="analytics-kpi__pct">
+                  {formatAnalyticsPercent(analytics.withTarification, analytics.totalStations)}
+                </span>
+              </article>
+              {contactCacheReady &&
+                sortedContactWarnings.map((warning) => {
+                  const value = contactMetricValue(warning, chartMetric)
+                  return (
+                    <article
+                      key={warning.id}
+                      className="analytics-kpi analytics-kpi--compact"
+                      title={warning.description}
+                    >
+                      <span className="analytics-kpi__value analytics-kpi__value--danger">
+                        {formatInt(value, loading)}
+                      </span>
+                      <span className="analytics-kpi__label">{warning.title}</span>
+                      <span className="analytics-kpi__pct">
+                        {formatAnalyticsPercent(value, contactEligibleTotal)}
+                      </span>
+                    </article>
+                  )
+                })}
             </div>
+
+            {contactCacheReady && contactByKey === null && contactWarnings.length === 0 && (
+              <p className="analytics-panel__hint">
+                Contacts opérateur : exécutez <code>npm run fetch:contacts</code> puis redéployez
+                pour afficher les indicateurs de numéros suspects.
+              </p>
+            )}
 
             {sortedAmenageurs.length > 0 && (
               <>
@@ -618,14 +712,23 @@ export function AnalyticsPage({
             )}
           </section>
 
-        {anomalyWarnings.length > 0 && (
-          <section className="analytics-warnings" aria-label="Anomalies techniques">
+        {(anomalyWarnings.length > 0 || contactWarnings.length > 0) && (
+          <section className="analytics-warnings" aria-label="Anomalies dans les données">
             <h3>Anomalies dans les données</h3>
             <p className="analytics-warnings__intro">
-              Incohérences possibles dans les fiches source (QualiCharge / transport). Les graphiques
-              connecteurs peuvent être biaisés.
+              Incohérences possibles dans les fiches source QualiCharge (connecteurs, contacts
+              opérateur).
             </p>
             <ul className="analytics-warnings__list">
+              {contactWarnings.map((warning) => (
+                <li key={`contact-${warning.id}`} className="analytics-warnings__item">
+                  <p className="analytics-warnings__title">{warning.title}</p>
+                  <p className="analytics-warnings__counts">
+                    {formatInt(warning.stations, loading)} stations · {formatInt(warning.pdc, loading)} PDC
+                  </p>
+                  <p className="analytics-warnings__desc">{warning.description}</p>
+                </li>
+              ))}
               {anomalyWarnings.map((warning) => (
                 <li key={warning.id} className="analytics-warnings__item">
                   <p className="analytics-warnings__title">{warning.title}</p>
@@ -638,6 +741,7 @@ export function AnalyticsPage({
             </ul>
           </section>
         )}
+
       </div>
     </div>
   )

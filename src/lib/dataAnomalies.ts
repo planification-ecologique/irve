@@ -1,4 +1,5 @@
 import { isMisTaggedDcOnly, TYPE2_MAX_POWER_KW } from './connectors'
+import type { AnalyticsMetric } from './analytics'
 import type { Station } from '../types/irve'
 
 const FAST_DC_MIN_KW = 50
@@ -23,6 +24,13 @@ export interface DataAnomalyWarning {
   description: string
   stations: number
   pdc: number
+}
+
+export function anomalyMetricValue(
+  warning: DataAnomalyWarning,
+  metric: AnalyticsMetric,
+): number {
+  return metric === 'stations' ? warning.stations : warning.pdc
 }
 
 export function computeDataAnomalyWarnings(stations: Station[]): DataAnomalyWarning[] {

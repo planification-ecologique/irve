@@ -32,6 +32,7 @@ import {
   getConnectorAvailabilityTone,
   summarizeConnectorAvailability,
 } from '../lib/pdcAvailability'
+import { isSuspiciousOperatorContact } from '../lib/operatorContact'
 import { formatOperatorPhone, formatPaymentMethods } from '../lib/stationDetailDisplay'
 import { getStationOperatorTariffHeadline } from '../data/operatorTariffs'
 import { ConnectorIcon } from './ConnectorIcon'
@@ -63,6 +64,9 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
   )
   const paymentMethods = detail ? formatPaymentMethods(detail) : null
   const operatorPhone = detail ? formatOperatorPhone(detail.telephone_operateur) : null
+  const suspiciousContact =
+    detail?.telephone_operateur != null &&
+    isSuspiciousOperatorContact(detail.telephone_operateur)
   const copyLabel = formattedAddress ? "Copier l'adresse" : 'Copier les coordonnées'
   const copiedLabel = formattedAddress ? 'Adresse copiée' : 'Coordonnées copiées'
   // Repli sur le tarif national/régional de l'opérateur quand QualiCharge ne
@@ -289,6 +293,11 @@ export function StationDetail({ station, onClose }: StationDetailProps) {
                 <dt>Contact</dt>
                 <dd>
                   <a href={`tel:${operatorPhone.replace(/\s/g, '')}`}>{operatorPhone}</a>
+                  {suspiciousContact && (
+                    <span className="station-detail__contact-warn" title="Numéro probablement factice">
+                      Suspect
+                    </span>
+                  )}
                 </dd>
               </div>
             )}

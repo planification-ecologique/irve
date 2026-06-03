@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "fetch:slow": "node scripts/fetch-slow-stations.mjs",
+    "fetch:contacts": "node scripts/fetch-station-contacts.mjs",
     "build": "node scripts/fetch-stations.mjs && tsc -b && vite build",
+    "build:full": "node scripts/fetch-stations.mjs && node scripts/fetch-station-contacts.mjs && tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run --config vitest.config.ts",
     "preview": "vite preview",
