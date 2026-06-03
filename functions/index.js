@@ -126,6 +126,11 @@ exports.submitFeedback = onRequest(
       res.status(400).json({ error: 'Le commentaire est obligatoire.' })
       return
     }
+    // Un opérateur doit être joignable : e-mail obligatoire dans ce cas.
+    if (authorType === 'operateur' && !email) {
+      res.status(400).json({ error: 'Un e-mail est obligatoire pour les signalements opérateur.' })
+      return
+    }
     if (email && !EMAIL_RE.test(email)) {
       res.status(400).json({ error: 'Adresse e-mail invalide.' })
       return
