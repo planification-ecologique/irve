@@ -33,7 +33,7 @@ export function StatsBar({
   useEffect(() => {
     if ((dataSource !== 'live' && dataSource !== 'mixed') || !lastFetchedAt) return
 
-    let intervalId: ReturnType<typeof window.setInterval> | undefined
+    let intervalId: number | undefined
 
     const stop = () => {
       if (intervalId !== undefined) {
