@@ -34,6 +34,9 @@ export function FeedbackForm({ stationId, stationName, onClose }: FeedbackFormPr
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  // Un opérateur doit pouvoir être recontacté : e-mail obligatoire dans ce cas.
+  const emailRequired = authorType === 'operateur'
+
   useEffect(() => {
     textareaRef.current?.focus()
   }, [])
@@ -50,6 +53,13 @@ export function FeedbackForm({ stationId, stationName, onClose }: FeedbackFormPr
     event.preventDefault()
     if (!comment.trim() || status === 'sending') return
 
+    const trimmedEmail = email.trim()
+    if (emailRequired && !trimmedEmail) {
+      setStatus('error')
+      setErrorMessage('Un e-mail est obligatoire pour les signalements opérateur.')
+      return
+    }
+
     setStatus('sending')
     setErrorMessage(null)
 
@@ -57,7 +67,7 @@ export function FeedbackForm({ stationId, stationName, onClose }: FeedbackFormPr
       raison: reason,
       type: authorType,
       commentaire: comment.trim(),
-      email: email.trim() || undefined,
+      email: trimmedEmail || undefined,
       id_station: stationId,
       website,
     })
@@ -131,7 +141,13 @@ export function FeedbackForm({ stationId, stationName, onClose }: FeedbackFormPr
               <span>Vous êtes</span>
               <select
                 value={authorType}
-                onChange={(event) => setAuthorType(event.target.value as FeedbackAuthorType)}
+                onChange={(event) => {
+                  setAuthorType(event.target.value as FeedbackAuthorType)
+                  if (status === 'error') {
+                    setStatus('idle')
+                    setErrorMessage(null)
+                  }
+                }}
               >
                 {AUTHOR_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -159,13 +175,24 @@ export function FeedbackForm({ stationId, stationName, onClose }: FeedbackFormPr
             </label>
 
             <label className="field">
-              <span>E-mail (optionnel)</span>
+              <span>{emailRequired ? 'E-mail' : 'E-mail (optionnel)'}</span>
               <input
                 type="email"
                 value={email}
-                placeholder="pour vous recontacter si besoin"
+                required={emailRequired}
+                aria-required={emailRequired}
+                placeholder={
+                  emailRequired
+                    ? 'pour vous recontacter (obligatoire)'
+                    : 'pour vous recontacter si besoin'
+                }
                 onChange={(event) => setEmail(event.target.value)}
               />
+              {emailRequired && (
+                <span className="field__hint">
+                  Obligatoire pour un signalement opérateur, afin de pouvoir vous recontacter.
+                </span>
+              )}
             </label>
 
             {/* Honeypot anti-spam : masqué, ne pas remplir. */}
@@ -187,14 +214,15 @@ export function FeedbackForm({ stationId, stationName, onClose }: FeedbackFormPr
             )}
 
             <p className="feedback-form__notice">
-              Aucune donnée personnelle n’est requise. Si vous renseignez un e-mail, il
-              servira uniquement au suivi de votre signalement.
+              {emailRequired
+                ? 'Votre e-mail servira uniquement au suivi de votre signalement.'
+                : 'Aucune donnée personnelle n’est requise. Si vous renseignez un e-mail, il servira uniquement au suivi de votre signalement.'}
             </p>
 
             <button
               type="submit"
               className="feedback-modal__submit"
-              disabled={!comment.trim() || status === 'sending'}
+              disabled={!comment.trim() || (emailRequired && !email.trim()) || status === 'sending'}
             >
               {status === 'sending' ? 'Envoi…' : 'Envoyer'}
             </button>
