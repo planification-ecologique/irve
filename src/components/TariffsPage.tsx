@@ -43,27 +43,79 @@ interface TariffsPageProps {
 type ModelFilter = PricingModel | 'all'
 type ConfidenceFilter = TariffConfidence | 'all'
 
+function SortableHeader({
+  label,
+  sortKey,
+  activeSortKey,
+  sortDir,
+  onSort,
+}: {
+  label: string
+  sortKey: TariffTableSortKey
+  activeSortKey: TariffTableSortKey
+  sortDir: TariffTableSortDir
+  onSort: (key: TariffTableSortKey) => void
+}) {
+  return (
+    <th scope="col">
+      <button
+        type="button"
+        className={`tariff-matrix-table__sort${activeSortKey === sortKey ? ' tariff-matrix-table__sort--active' : ''}`}
+        onClick={() => onSort(sortKey)}
+      >
+        {label}
+        <span className="tariff-matrix-table__sort-icon" aria-hidden="true">
+          {tariffTableSortIndicator(sortKey, activeSortKey, sortDir)}
+        </span>
+      </button>
+    </th>
+  )
+}
+
 function TariffMatrixTable({
   tariffs,
   weightedByRange,
   activeRanges,
+  sortKey,
+  sortDir,
+  onSort,
 }: {
   tariffs: OperatorTariff[]
   weightedByRange: ReturnType<typeof computeWeightedTariffAverages>
   activeRanges: readonly TariffPowerRange[]
+  sortKey: TariffTableSortKey
+  sortDir: TariffTableSortDir
+  onSort: (key: TariffTableSortKey) => void
 }) {
   return (
     <div className="tariffs-matrix-wrap">
       <table className="tariff-matrix-table">
         <thead>
           <tr>
-            <th scope="col">Opérateur</th>
+            <SortableHeader
+              label="Opérateur"
+              sortKey="label"
+              activeSortKey={sortKey}
+              sortDir={sortDir}
+              onSort={onSort}
+            />
             {activeRanges.map((range) => (
-              <th key={range.id} scope="col">
-                {range.label}
-              </th>
+              <SortableHeader
+                key={range.id}
+                label={range.label}
+                sortKey={`range:${range.id}`}
+                activeSortKey={sortKey}
+                sortDir={sortDir}
+                onSort={onSort}
+              />
             ))}
-            <th scope="col">Modèle</th>
+            <SortableHeader
+              label="Modèle"
+              sortKey="model"
+              activeSortKey={sortKey}
+              sortDir={sortDir}
+              onSort={onSort}
+            />
           </tr>
           <tr className="tariff-matrix-table__avg-row">
             <th scope="row">Moyenne (PDC)</th>
