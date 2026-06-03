@@ -28,6 +28,7 @@ import {
 } from '../lib/tariffPowerRanges'
 import type { Station } from '../types/irve'
 import type { Theme } from '../lib/theme'
+import { MAP_PATH, navigate } from '../lib/routes'
 import { StatsBar } from './StatsBar'
 import { TariffBoxPlotChart } from './TariffRangeChart'
 import '../App.css'
@@ -376,6 +377,17 @@ export function TariffsPage({ theme, onToggleTheme, stations, loading = false }:
       />
 
       <div className="tariffs-page">
+        <a
+          href={MAP_PATH}
+          className="page-back"
+          onClick={(event) => {
+            event.preventDefault()
+            navigate(MAP_PATH)
+          }}
+        >
+          <span aria-hidden="true">←</span> Retour à la carte
+        </a>
+
         <header className="tariffs-page__intro">
           <div className="tariffs-page__intro-text">
             <h2>Tarifs par opérateur</h2>
