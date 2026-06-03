@@ -1,17 +1,19 @@
-import type {
-  OperatorTariff,
-  PricingModel,
-  TariffConfidence,
-  TariffTier,
-  TariffUnit,
+import {
+  getOperatorTariff,
+  type OperatorTariff,
+  type PricingModel,
+  type TariffConfidence,
+  type TariffTier,
+  type TariffUnit,
 } from '../data/operatorTariffs'
+import type { Station } from '../types/irve'
 import {
   getOperatorDirectPriceForRange,
   type TariffPowerRange,
 } from './tariffPowerRanges'
 
 export type TariffTableSortDir = 'asc' | 'desc'
-export type TariffTableSortKey = 'label' | 'model' | `range:${string}`
+export type TariffTableSortKey = 'label' | 'stations' | 'model' | `range:${string}`
 
 const PRICE_FMT = new Intl.NumberFormat('fr-FR', {
   minimumFractionDigits: 2,
@@ -26,6 +28,7 @@ const DATE_FMT = new Intl.DateTimeFormat('fr-FR', {
 
 export const PRICING_MODEL_LABELS: Record<PricingModel, string> = {
   'national-fixed': 'Tarif national fixe',
+  'national-range': 'Fourchette nationale',
   'regional-fixed': 'Tarif régional fixe',
   'varies-by-site': 'Prix par station',
   unknown: 'Grille non publiée',
@@ -39,6 +42,18 @@ export const CONFIDENCE_LABELS: Record<TariffConfidence, string> = {
 
 export function formatTariffPrice(value: number, unit: TariffUnit): string {
   return `${PRICE_FMT.format(value)}\u00a0${unit}`
+}
+
+/** Prix unique ou fourchette min–max (€/kWh). */
+export function formatTariffTierPrice(tier: TariffTier): string {
+  if (
+    tier.valueMax != null &&
+    tier.valueMax > tier.value &&
+    tier.unit === '€/kWh'
+  ) {
+    return `${PRICE_FMT.format(tier.value)} – ${PRICE_FMT.format(tier.valueMax)}\u00a0${tier.unit}`
+  }
+  return formatTariffPrice(tier.value, tier.unit)
 }
 
 export function formatEuro(amount: number): string {
@@ -65,9 +80,57 @@ export function formatDirectCb(value: boolean | null): string {
   return '—'
 }
 
+export type StationTariffDataQuality = 'reliable' | 'approximate' | 'missing'
+
+export const STATION_TARIFF_QUALITY_LABELS: Record<StationTariffDataQuality, string> = {
+  reliable: 'Données fiables',
+  approximate: 'Données approximatives',
+  missing: 'Données manquantes',
+}
+
+/** Qualité tarifaire d’une station selon la fiche opérateur jointe. */
+export function classifyStationTariffQuality(
+  nomOperateur: string | null | undefined,
+): StationTariffDataQuality {
+  const tariff = getOperatorTariff(nomOperateur)
+  if (!tariff || !tariffHasDisplayablePrice(tariff)) return 'missing'
+  if (
+    tariff.pricingModel === 'national-range' ||
+    tariff.confidence === 'medium' ||
+    tariff.confidence === 'low'
+  ) {
+    return 'approximate'
+  }
+  return 'reliable'
+}
+
+export interface StationTariffQualityBreakdown {
+  reliable: number
+  approximate: number
+  missing: number
+  total: number
+}
+
+export function computeStationTariffQualityBreakdown(
+  stations: readonly Station[],
+): StationTariffQualityBreakdown {
+  let reliable = 0
+  let approximate = 0
+  let missing = 0
+  for (const station of stations) {
+    const quality = classifyStationTariffQuality(station.nom_operateur)
+    if (quality === 'reliable') reliable += 1
+    else if (quality === 'approximate') approximate += 1
+    else missing += 1
+  }
+  return { reliable, approximate, missing, total: stations.length }
+}
+
 export function tariffHasDisplayablePrice(tariff: OperatorTariff): boolean {
   return (
-    (tariff.pricingModel === 'national-fixed' || tariff.pricingModel === 'regional-fixed') &&
+    (tariff.pricingModel === 'national-fixed' ||
+      tariff.pricingModel === 'national-range' ||
+      tariff.pricingModel === 'regional-fixed') &&
     tariff.tiers.some((t) => t.access === 'direct')
   )
 }
@@ -75,9 +138,10 @@ export function tariffHasDisplayablePrice(tariff: OperatorTariff): boolean {
 export function compareTariffs(a: OperatorTariff, b: OperatorTariff): number {
   const modelOrder: Record<PricingModel, number> = {
     'national-fixed': 0,
-    'regional-fixed': 1,
-    'varies-by-site': 2,
-    unknown: 3,
+    'national-range': 1,
+    'regional-fixed': 2,
+    'varies-by-site': 3,
+    unknown: 4,
   }
   const byModel = modelOrder[a.pricingModel] - modelOrder[b.pricingModel]
   if (byModel !== 0) return byModel
@@ -115,9 +179,10 @@ export function compareTariffsByBestDirectPrice(a: OperatorTariff, b: OperatorTa
 
 const MODEL_SORT_ORDER: Record<PricingModel, number> = {
   'national-fixed': 0,
-  'regional-fixed': 1,
-  'varies-by-site': 2,
-  unknown: 3,
+  'national-range': 1,
+  'regional-fixed': 2,
+  'varies-by-site': 3,
+  unknown: 4,
 }
 
 /** Tri tableau tarifs (opérateur, palier, modèle). Sans prix → fin de liste. */
@@ -127,10 +192,18 @@ export function compareTariffsForTableSort(
   sortKey: TariffTableSortKey,
   direction: TariffTableSortDir,
   rangesById: ReadonlyMap<string, TariffPowerRange>,
+  stationCounts?: ReadonlyMap<string, number>,
 ): number {
   const mul = direction === 'asc' ? 1 : -1
 
   if (sortKey === 'label') {
+    return mul * a.label.localeCompare(b.label, 'fr')
+  }
+
+  if (sortKey === 'stations') {
+    const ca = stationCounts?.get(a.id) ?? 0
+    const cb = stationCounts?.get(b.id) ?? 0
+    if (ca !== cb) return mul * (ca - cb)
     return mul * a.label.localeCompare(b.label, 'fr')
   }
 
@@ -163,7 +236,7 @@ export function nextTariffTableSort(
     return { key: column, dir: currentDir === 'asc' ? 'desc' : 'asc' }
   }
   const defaultDir: TariffTableSortDir =
-    column === 'label' || column === 'model' ? 'asc' : 'asc'
+    column === 'stations' ? 'desc' : column === 'label' || column === 'model' ? 'asc' : 'asc'
   return { key: column, dir: defaultDir }
 }
 

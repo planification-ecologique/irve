@@ -188,6 +188,15 @@
   color: var(--accent);
 }
 
+.tariff-badge--model-national-range {
+  background: color-mix(in srgb, #6366f1 16%, transparent);
+  color: #4f46e5;
+}
+
+[data-theme='dark'] .tariff-badge--model-national-range {
+  color: #a5b4fc;
+}
+
 .tariff-badge--model-varies-by-site,
 .tariff-badge--model-unknown {
   background: color-mix(in srgb, var(--text-muted) 18%, transparent);
@@ -548,6 +557,171 @@
   white-space: nowrap;
 }
 
+.tariff-matrix-table__stations {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.tariff-matrix-table__avg-row .tariff-matrix-table__stations {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.tariffs-page__charts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+  gap: 1rem;
+  align-items: stretch;
+  margin-bottom: 1.25rem;
+}
+
+.tariffs-page__charts > .tariffs-box,
+.tariffs-page__charts > .tariffs-quality {
+  margin-bottom: 0;
+  height: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+@media (max-width: 960px) {
+  .tariffs-page__charts {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tariffs-quality {
+  padding: 1rem 1.125rem;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+}
+
+.tariffs-quality__title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.tariffs-quality__hint {
+  margin: 0 0 1rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.tariffs-quality__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  min-height: 0;
+}
+
+.tariffs-page__charts .tariffs-box__rows {
+  flex: 1;
+  justify-content: space-evenly;
+}
+
+.tariffs-quality__pie {
+  position: relative;
+  width: 9.5rem;
+  height: 9.5rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tariffs-quality__pie-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+  color: var(--text-muted);
+  font-size: 1.25rem;
+}
+
+.tariffs-quality__pie-hole {
+  position: absolute;
+  inset: 22%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--panel-bg);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.tariffs-quality__pie-total {
+  font-size: 1.125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.tariffs-quality__pie-total-label {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tariffs-quality__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tariffs-quality__legend-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.tariffs-quality__swatch {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 2px;
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+
+.tariffs-quality__legend-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.tariffs-quality__legend-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.tariffs-quality__legend-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-theme='dark'] .tariffs-quality__pie-hole {
+  background: var(--bg, var(--panel-bg));
+}
+
 .tariff-matrix-table__price {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -587,10 +761,10 @@
     display: none;
   }
 
-  .tariff-matrix-table th:nth-child(3),
-  .tariff-matrix-table td:nth-child(3),
-  .tariff-matrix-table th:nth-child(5),
-  .tariff-matrix-table td:nth-child(5) {
+  .tariff-matrix-table th:nth-child(4),
+  .tariff-matrix-table td:nth-child(4),
+  .tariff-matrix-table th:nth-child(6),
+  .tariff-matrix-table td:nth-child(6) {
     display: none;
   }
 }

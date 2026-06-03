@@ -12,6 +12,7 @@ import {
   formatPowerRange,
   formatTariffDate,
   formatTariffPrice,
+  formatTariffTierPrice,
   nextTariffTableSort,
   PRICING_MODEL_LABELS,
   tariffHasDisplayablePrice,
@@ -21,15 +22,18 @@ import {
 } from '../lib/tariffDisplay'
 import {
   activeTariffPowerRangesForStations,
+  computeStationCountsByTariff,
   computeTariffRangeBoxPlots,
   computeWeightedTariffAverages,
-  getOperatorDirectPriceForRange,
+  countStationsCoveredByTariffs,
+  formatOperatorDirectPriceForRange,
   type TariffPowerRange,
 } from '../lib/tariffPowerRanges'
 import type { Station } from '../types/irve'
 import type { Theme } from '../lib/theme'
 import { MAP_PATH, navigate } from '../lib/routes'
 import { StatsBar } from './StatsBar'
+import { TariffQualityPieChart } from './TariffQualityPieChart'
 import { TariffBoxPlotChart } from './TariffRangeChart'
 import '../App.css'
 import '../Tariffs.css'
@@ -73,10 +77,14 @@ function SortableHeader({
   )
 }
 
+const STATION_COUNT_FMT = new Intl.NumberFormat('fr-FR')
+
 function TariffMatrixTable({
   tariffs,
   weightedByRange,
   activeRanges,
+  stationCounts,
+  stationsCoveredTotal,
   sortKey,
   sortDir,
   onSort,
@@ -84,6 +92,8 @@ function TariffMatrixTable({
   tariffs: OperatorTariff[]
   weightedByRange: ReturnType<typeof computeWeightedTariffAverages>
   activeRanges: readonly TariffPowerRange[]
+  stationCounts: ReadonlyMap<string, number>
+  stationsCoveredTotal: number
   sortKey: TariffTableSortKey
   sortDir: TariffTableSortDir
   onSort: (key: TariffTableSortKey) => void
@@ -96,6 +106,13 @@ function TariffMatrixTable({
             <SortableHeader
               label="Opérateur"
               sortKey="label"
+              activeSortKey={sortKey}
+              sortDir={sortDir}
+              onSort={onSort}
+            />
+            <SortableHeader
+              label="Stations"
+              sortKey="stations"
               activeSortKey={sortKey}
               sortDir={sortDir}
               onSort={onSort}
@@ -120,6 +137,9 @@ function TariffMatrixTable({
           </tr>
           <tr className="tariff-matrix-table__avg-row">
             <th scope="row">Moyenne (PDC)</th>
+            <td className="tariff-matrix-table__stations tariff-matrix-table__avg">
+              {STATION_COUNT_FMT.format(stationsCoveredTotal)}
+            </td>
             {activeRanges.map((range) => {
               const avg = weightedByRange.find((a) => a.rangeId === range.id)
               return (
@@ -139,18 +159,21 @@ function TariffMatrixTable({
                   {tariff.label}
                 </a>
               </th>
+              <td className="tariff-matrix-table__stations">
+                {STATION_COUNT_FMT.format(stationCounts.get(tariff.id) ?? 0)}
+              </td>
               {activeRanges.map((range) => {
-                const price = getOperatorDirectPriceForRange(tariff, range)
+                const priceLabel = formatOperatorDirectPriceForRange(tariff, range)
                 return (
                   <td
                     key={range.id}
                     className={
-                      price != null
+                      priceLabel != null
                         ? 'tariff-matrix-table__price'
                         : 'tariff-matrix-table__na'
                     }
                   >
-                    {price != null ? formatTariffPrice(price, '€/kWh') : '—'}
+                    {priceLabel ?? '—'}
                   </td>
                 )
               })}
@@ -231,7 +254,7 @@ function TariffCard({ tariff }: { tariff: OperatorTariff }) {
               {directTiers.map((tier, i) => (
                 <tr key={`direct-${i}`}>
                   <td>{formatPowerRange(tier)}</td>
-                  <td className="tariff-table__price">{formatTariffPrice(tier.value, tier.unit)}</td>
+                  <td className="tariff-table__price">{formatTariffTierPrice(tier)}</td>
                   <td>{tier.label ?? '—'}</td>
                 </tr>
               ))}
@@ -255,7 +278,7 @@ function TariffCard({ tariff }: { tariff: OperatorTariff }) {
               {subscriberTiers.map((tier, i) => (
                 <tr key={`sub-${i}`}>
                   <td>{formatPowerRange(tier)}</td>
-                  <td className="tariff-table__price">{formatTariffPrice(tier.value, tier.unit)}</td>
+                  <td className="tariff-table__price">{formatTariffTierPrice(tier)}</td>
                   <td>{tier.label ?? '—'}</td>
                 </tr>
               ))}
@@ -299,6 +322,20 @@ export function TariffsPage({ theme, onToggleTheme, stations, loading = false }:
     return names.size
   }, [stations])
 
+  const stationCountsByTariff = useMemo(
+    () => computeStationCountsByTariff(stations, OPERATOR_TARIFFS),
+    [stations],
+  )
+
+  const stationsWithDisplayableGrid = useMemo(
+    () =>
+      countStationsCoveredByTariffs(
+        stations,
+        OPERATOR_TARIFFS.filter(tariffHasDisplayablePrice),
+      ),
+    [stations],
+  )
+
   const rangesById = useMemo(
     () => new Map(activeRanges.map((r) => [r.id, r])),
     [activeRanges],
@@ -312,6 +349,7 @@ export function TariffsPage({ theme, onToggleTheme, stations, loading = false }:
   const effectiveSortKey =
     tableSortKey != null &&
     (tableSortKey === 'label' ||
+      tableSortKey === 'stations' ||
       tableSortKey === 'model' ||
       (tableSortKey.startsWith('range:') && rangesById.has(tableSortKey.slice(6))))
       ? tableSortKey
@@ -337,7 +375,14 @@ export function TariffsPage({ theme, onToggleTheme, stations, loading = false }:
         return haystack.includes(q)
       })
       .sort((a, b) =>
-        compareTariffsForTableSort(a, b, effectiveSortKey, tableSortDir, rangesById),
+        compareTariffsForTableSort(
+          a,
+          b,
+          effectiveSortKey,
+          tableSortDir,
+          rangesById,
+          stationCountsByTariff,
+        ),
       )
   }, [
     query,
@@ -347,6 +392,7 @@ export function TariffsPage({ theme, onToggleTheme, stations, loading = false }:
     effectiveSortKey,
     tableSortDir,
     rangesById,
+    stationCountsByTariff,
   ])
 
   const counts = useMemo(() => {
@@ -360,6 +406,11 @@ export function TariffsPage({ theme, onToggleTheme, stations, loading = false }:
   const matrixTariffs = useMemo(
     () => (onlyWithPrice ? filtered.filter(tariffHasDisplayablePrice) : filtered),
     [filtered, onlyWithPrice],
+  )
+
+  const matrixStationsCovered = useMemo(
+    () => countStationsCoveredByTariffs(stations, matrixTariffs),
+    [stations, matrixTariffs],
   )
 
   return (
@@ -398,17 +449,22 @@ export function TariffsPage({ theme, onToggleTheme, stations, loading = false }:
             </p>
             <p className="tariffs-page__coverage">
               <strong>{OPERATOR_TARIFFS.length}</strong> fiches ·{' '}
-              <strong>{qualichargeOperatorCount}</strong> libellés <code>nom_operateur</code> —
-              doublons de casse signalés dans la page <strong>Analyse</strong>.
+              <strong>{qualichargeOperatorCount}</strong> libellés <code>nom_operateur</code> ·{' '}
+              <strong>{STATION_COUNT_FMT.format(stations.length)}</strong> stations ·{' '}
+              <strong>{STATION_COUNT_FMT.format(stationsWithDisplayableGrid)}</strong> avec grille
+              dans le tableau — doublons de casse signalés dans la page <strong>Analyse</strong>.
             </p>
           </div>
         </header>
 
-        <TariffBoxPlotChart
-          boxPlots={boxPlotsByRange}
-          activeRanges={activeRanges}
-          loading={loading}
-        />
+        <div className="tariffs-page__charts">
+          <TariffBoxPlotChart
+            boxPlots={boxPlotsByRange}
+            activeRanges={activeRanges}
+            loading={loading}
+          />
+          <TariffQualityPieChart stations={stations} loading={loading} />
+        </div>
 
         <div className="tariffs-toolbar">
           <label className="tariffs-search">
@@ -431,6 +487,9 @@ export function TariffsPage({ theme, onToggleTheme, stations, loading = false }:
               <option value="all">Tous ({OPERATOR_TARIFFS.length})</option>
               <option value="national-fixed">
                 National fixe ({counts['national-fixed'] ?? 0})
+              </option>
+              <option value="national-range">
+                Fourchette nationale ({counts['national-range'] ?? 0})
               </option>
               <option value="regional-fixed">
                 Régional fixe ({counts['regional-fixed'] ?? 0})
@@ -471,6 +530,9 @@ export function TariffsPage({ theme, onToggleTheme, stations, loading = false }:
         <p className="tariffs-page__count" aria-live="polite">
           {matrixTariffs.length} ligne{matrixTariffs.length !== 1 ? 's' : ''}
           {matrixTariffs.length !== filtered.length && ` (${filtered.length} avec fiches)`}
+          {' · '}
+          {STATION_COUNT_FMT.format(matrixStationsCovered)} station
+          {matrixStationsCovered !== 1 ? 's' : ''} couvertes
         </p>
 
         {matrixTariffs.length === 0 ? (
@@ -480,6 +542,8 @@ export function TariffsPage({ theme, onToggleTheme, stations, loading = false }:
             tariffs={matrixTariffs}
             weightedByRange={weightedByRange}
             activeRanges={activeRanges}
+            stationCounts={stationCountsByTariff}
+            stationsCoveredTotal={matrixStationsCovered}
             sortKey={effectiveSortKey}
             sortDir={tableSortDir}
             onSort={handleTableSort}

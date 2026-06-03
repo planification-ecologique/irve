@@ -4,7 +4,7 @@ import {
   type OperatorTariff,
 } from '../data/operatorTariffs'
 import type { Station } from '../types/irve'
-import { tariffHasDisplayablePrice } from './tariffDisplay'
+import { formatTariffTierPrice, tariffHasDisplayablePrice } from './tariffDisplay'
 
 export interface TariffPowerRange {
   id: string
@@ -256,4 +256,44 @@ export function getOperatorDirectPriceForRange(
   const tier = pickDirectTier(tariff, range.samplePowerKw)
   if (!tier || tier.unit !== '€/kWh') return null
   return tier.value
+}
+
+/** Libellé cellule tableau (prix fixe ou fourchette). */
+export function formatOperatorDirectPriceForRange(
+  tariff: OperatorTariff,
+  range: TariffPowerRange,
+): string | null {
+  if (!tariffHasDisplayablePrice(tariff)) return null
+  const tier = pickDirectTier(tariff, range.samplePowerKw)
+  if (!tier || tier.unit !== '€/kWh') return null
+  return formatTariffTierPrice(tier)
+}
+
+/** Nombre de stations QualiCharge par fiche opérateur (`match`). */
+export function computeStationCountsByTariff(
+  stations: readonly Station[],
+  tariffs: readonly OperatorTariff[],
+): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const tariff of tariffs) {
+    const names = new Set(tariff.match)
+    const n = stations.filter(
+      (s) => s.nom_operateur != null && names.has(s.nom_operateur),
+    ).length
+    counts.set(tariff.id, n)
+  }
+  return counts
+}
+
+/** Stations dont le `nom_operateur` est couvert par au moins une fiche listée. */
+export function countStationsCoveredByTariffs(
+  stations: readonly Station[],
+  tariffs: readonly OperatorTariff[],
+): number {
+  const names = new Set<string>()
+  for (const tariff of tariffs) {
+    for (const n of tariff.match) names.add(n)
+  }
+  return stations.filter((s) => s.nom_operateur != null && names.has(s.nom_operateur))
+    .length
 }

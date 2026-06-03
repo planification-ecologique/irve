@@ -38,11 +38,17 @@ export type TariffConfidence = 'high' | 'medium' | 'low'
 /**
  * - `national-fixed` : prix identique sur tout le réseau en France.
  * - `regional-fixed` : prix uniforme mais sur un périmètre régional/départemental.
- * - `varies-by-site` : prix défini borne par borne (réseaux municipaux, plateformes
- *   d'itinérance, tarification dynamique…). Aucun prix national affichable.
+ * - `national-range` : fourchette min–max documentée sur tout le réseau (ex. Tesla
+ *   Supercharger). `tiers[].value` = min, `valueMax` = max.
+ * - `varies-by-site` : prix défini borne par borne sans fourchette nationale publiée.
  * - `unknown` : opérateur réel mais aucune grille publique trouvée.
  */
-export type PricingModel = 'national-fixed' | 'regional-fixed' | 'varies-by-site' | 'unknown'
+export type PricingModel =
+  | 'national-fixed'
+  | 'national-range'
+  | 'regional-fixed'
+  | 'varies-by-site'
+  | 'unknown'
 
 export interface TariffTier {
   /** Borne inférieure de puissance en kW (incluse). `null` = non bornée. */
@@ -50,6 +56,8 @@ export interface TariffTier {
   /** Borne supérieure de puissance en kW (incluse). `null` = non bornée. */
   powerMaxKw: number | null
   value: number
+  /** Borne haute €/kWh (fourchette éditoriale). Absent = prix unique. */
+  valueMax?: number
   unit: TariffUnit
   access: TariffAccess
   /** Précision optionnelle (ex. « autoroute », « heures creuses »). */
@@ -64,7 +72,7 @@ export interface OperatorTariff {
   pricingModel: PricingModel
   /** Paiement CB direct au terminal sans abonnement. `null` = inconnu. */
   directCbAvailable: boolean | null
-  /** Tarifs publics. Vide si `varies-by-site`/`unknown`. */
+  /** Tarifs publics. Vide si `varies-by-site`/`unknown` sans fourchette. */
   tiers: readonly TariffTier[]
   /** Frais de session fixe éventuel (€), facturé en sus du €/kWh (ex. R3). */
   sessionFee?: number
@@ -380,14 +388,24 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
     id: 'greenspot',
     label: 'Greenspot',
     match: ['Greenspot'],
-    pricingModel: 'varies-by-site',
+    pricingModel: 'national-range',
     directCbAvailable: true,
-    tiers: [],
+    tiers: [
+      {
+        powerMinKw: null,
+        powerMaxKw: null,
+        value: 0.5,
+        valueMax: 0.54,
+        unit: '€/kWh',
+        access: 'direct',
+        label: 'fourchette TTC (≈ 0,42–0,45 €/kWh HT)',
+      },
+    ],
     source: 'https://www.greenspot.fr/borne-recharge',
     checkedAt: CHECKED_AT,
-    confidence: 'high',
+    confidence: 'medium',
     notes:
-      'Site Greenspot : pas de grille nationale. Tarifs par site (ex. ~0,42–0,45 €/kWh HT + frais/min possibles après 90 min). CB sur bornes équipées.',
+      'Pas de grille nationale unique : fourchette observée ~0,42–0,45 €/kWh HT sur stations publiques (≈ 0,50–0,54 TTC). Frais/min possibles après 90 min selon site. CB sur bornes équipées.',
   },
 
   // ─── Tarifs régionaux/départementaux fixes ─────────────────────────────────
@@ -436,53 +454,93 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
     id: 'powerdot',
     label: 'Power Dot France',
     match: ['Power Dot France'],
-    pricingModel: 'varies-by-site',
+    pricingModel: 'national-range',
     directCbAvailable: null,
-    tiers: [],
+    tiers: [
+      {
+        powerMinKw: null,
+        powerMaxKw: null,
+        value: 0.3,
+        valueMax: 0.53,
+        unit: '€/kWh',
+        access: 'direct',
+        label: 'Plunge Pricing / tarif dynamique (2026)',
+      },
+    ],
     source: 'https://powerdot.eu/fr/',
     checkedAt: CHECKED_AT,
     confidence: 'high',
     notes:
-      'Prix par site (Plunge Pricing / tarification dynamique 2026). Fourchette indicative 0,30–0,53 €/kWh selon site et heure. Appli Powerdot avant session.',
+      'Tarification dynamique (Plunge Pricing avec Octopus, mars 2026) : fourchette indicative 0,30–0,53 €/kWh selon site, vitesse et créneaux (−20 à −50 %). Appli Powerdot / Electroverse avant session.',
   },
   {
     id: 'izivia',
     label: 'Izivia',
     match: ['IZIVIA'],
-    pricingModel: 'varies-by-site',
+    pricingModel: 'national-range',
     directCbAvailable: true,
-    tiers: [],
+    tiers: [
+      {
+        powerMinKw: null,
+        powerMaxKw: null,
+        value: 0.4,
+        valueMax: 0.55,
+        unit: '€/kWh',
+        access: 'direct',
+        label: 'carte Izivia / appli (par station)',
+      },
+    ],
     source: 'https://izivia.com/blog/questions-frequentes/prix-recharge-bornes-electriques',
     checkedAt: CHECKED_AT,
     confidence: 'high',
     notes:
-      'Prix par station sur carte Izivia / appli (fourchette ~0,40–0,55 €/kWh). CB via Paynow ou TPE sur bornes équipées. Pré-autorisation 5–100 €.',
+      'Prix par station sur carte Izivia / appli (fourchette observée ~0,40–0,55 €/kWh). CB via Paynow ou TPE sur bornes équipées. Pré-autorisation 5–100 €.',
   },
   {
     id: 'tesla',
     label: 'Tesla',
     match: ['Tesla'],
-    pricingModel: 'varies-by-site',
+    pricingModel: 'national-range',
     directCbAvailable: null,
-    tiers: [],
+    tiers: [
+      {
+        powerMinKw: null,
+        powerMaxKw: null,
+        value: 0.39,
+        valueMax: 0.44,
+        unit: '€/kWh',
+        access: 'direct',
+        label: 'Supercharger (fourchette par station)',
+      },
+    ],
     source: 'https://www.tesla.com/support/charging/supercharger/fees',
     checkedAt: CHECKED_AT,
     confidence: 'high',
     notes:
-      'Documentation Supercharger officielle : tarification dynamique par station/heure (2026). Membres (11,99 €/mois) ~0,15 €/kWh moins cher. CB sur bornes V4/V5 uniquement.',
+      'Tarification dynamique par station/heure (2026) : fourchette observée ~0,39–0,44 €/kWh en accès direct. Membres (11,99 €/mois) ~0,15 €/kWh moins cher. CB sur bornes V4/V5 uniquement.',
   },
   {
     id: 'ionity',
     label: 'Ionity',
     match: ['Ionity'],
-    pricingModel: 'varies-by-site',
+    pricingModel: 'national-range',
     directCbAvailable: true,
-    tiers: [],
+    tiers: [
+      {
+        powerMinKw: null,
+        powerMaxKw: null,
+        value: 0.51,
+        valueMax: 0.59,
+        unit: '€/kWh',
+        access: 'direct',
+        label: 'ad-hoc appli (hors–sur autoroute, avr. 2026)',
+      },
+    ],
     source: 'https://www.ionity.eu/network/access-and-payments',
     checkedAt: CHECKED_AT,
     confidence: 'high',
     notes:
-      'Depuis le 12/02/2026 : prix par station (minimum affiché ~0,39 €/kWh, souvent plus élevé selon site/autoroute). CB, appli ou abonnement. Pas de grille nationale.',
+      'Depuis avr. 2026 (ad-hoc & nouveaux abos mensuels) : 0,51 €/kWh hors autoroute, 0,59 €/kWh sur autoroute (appli). Certaines bornes peuvent dépasser ces minima. CB direct : ~0,54 €/kWh hors autoroute. Abonnés antérieurs au 12/02/2026 et offres 365 : anciens tarifs.',
   },
   {
     id: 'easycharge',
@@ -551,14 +609,31 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
     id: 'sowatt',
     label: 'Sowatt Solutions',
     match: ['Sowatt Solutions'],
-    pricingModel: 'varies-by-site',
-    directCbAvailable: null,
-    tiers: [],
+    pricingModel: 'national-fixed',
+    directCbAvailable: true,
+    tiers: [
+      {
+        powerMinKw: null,
+        powerMaxKw: null,
+        value: 0.56,
+        unit: '€/kWh',
+        access: 'direct',
+        label: 'réseau Sowatt (CB, juin 2025)',
+      },
+      {
+        powerMinKw: null,
+        powerMaxKw: null,
+        value: 0.54,
+        unit: '€/kWh',
+        access: 'subscriber',
+        label: 'carte RFID Sowatt',
+      },
+    ],
     source: 'https://www.sowattsolutions.com/carte-de-recharge-sowatt/',
     checkedAt: CHECKED_AT,
-    confidence: 'high',
+    confidence: 'medium',
     notes:
-      'Prix hôte sur bornes tierces ; sur réseau Sowatt propre : ~0,56 €/kWh CB, ~0,54 RFID (juin 2025). Carte gratuite. Appli affiche tarif avant session.',
+      'Sur réseau Sowatt propre : ~0,56 €/kWh CB, ~0,54 €/kWh carte RFID (juin 2025). Bornes tierces : tarif hôte dans l’appli. Carte gratuite.',
   },
   {
     id: 'soregies',
@@ -589,14 +664,32 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
     id: 'freshmile',
     label: 'Freshmile',
     match: ['Freshmile'],
-    pricingModel: 'varies-by-site',
+    pricingModel: 'national-fixed',
     directCbAvailable: true,
-    tiers: [],
-    source: 'https://www.freshmile.com/',
+    tiers: [
+      {
+        powerMinKw: 0,
+        powerMaxKw: 22,
+        value: 0.25,
+        valueMax: 0.4,
+        unit: '€/kWh',
+        access: 'direct',
+        label: 'réseau Freshmile AC',
+      },
+      {
+        powerMinKw: 23,
+        powerMaxKw: null,
+        value: 0.65,
+        unit: '€/kWh',
+        access: 'direct',
+        label: 'réseau Freshmile DC',
+      },
+    ],
+    source: 'https://www.freshmile.com/aide-contact/',
     checkedAt: CHECKED_AT,
-    confidence: 'high',
+    confidence: 'medium',
     notes:
-      'CPO + MSP : prix fixé par l’hôte, affiché par station dans l’appli Freshmile avant session. CB sur bornes équipées. Pas de grille nationale.',
+      'Grille indicative réseau propre Freshmile (2026) : AC 0,25–0,40 €/kWh, DC ~0,65 €/kWh. En itinérance (autres CPO), tarif hôte affiché dans l’appli avant session. Pass 4,99 €, sans abonnement mensuel.',
   },
   {
     id: 'load-stations',
@@ -628,14 +721,47 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
     id: 'shell-recharge',
     label: 'Shell Recharge',
     match: ['Shell Recharge'],
-    pricingModel: 'varies-by-site',
+    pricingModel: 'national-fixed',
     directCbAvailable: true,
-    tiers: [],
+    tiers: [
+      {
+        powerMinKw: 0,
+        powerMaxKw: 22,
+        value: 0.39,
+        unit: '€/kWh',
+        access: 'direct',
+        label: 'standard 7–22 kW (CB)',
+      },
+      {
+        powerMinKw: 50,
+        powerMaxKw: null,
+        value: 0.65,
+        unit: '€/kWh',
+        access: 'direct',
+        label: 'ultra-rapide >50 kW (CB)',
+      },
+      {
+        powerMinKw: 0,
+        powerMaxKw: 22,
+        value: 0.39,
+        unit: '€/kWh',
+        access: 'subscriber',
+        label: 'carte Shell Recharge',
+      },
+      {
+        powerMinKw: 50,
+        powerMaxKw: null,
+        value: 0.61,
+        unit: '€/kWh',
+        access: 'subscriber',
+        label: 'carte Shell Recharge',
+      },
+    ],
     source: 'https://www.shell.fr/recharge-electrique/tarifs-de-shell-recharge.html',
     checkedAt: CHECKED_AT,
     confidence: 'high',
     notes:
-      'Réseau Shell Recharge : tarifs €/kWh par station dans l’appli Shell (page FR officielle). Frais transaction 0,35 €/session (carte Shell). Partenaires : tarif CPO + 0,35 €. Pré-auth. 45 € (carte/appli) ou 65 € (CB).',
+      'Grille nationale bornes Shell Recharge (TTC, page FR) : CB 0,39 €/kWh standard (7–22 kW), 0,65 €/kWh ultra-rapide (>50 kW). Carte Shell : 0,39 / 0,61 €/kWh. Frais transaction 0,35 €/session (carte Shell, pas CB). Bornes partenaires : tarif CPO + 0,35 €. Pré-auth. 65 € (CB) ou 45 € (carte/appli).',
   },
   {
     id: 'zeenco',
@@ -667,14 +793,24 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
     id: 'yaway',
     label: 'Yaway',
     match: ['Yaway'],
-    pricingModel: 'varies-by-site',
+    pricingModel: 'national-range',
     directCbAvailable: true,
-    tiers: [],
+    tiers: [
+      {
+        powerMinKw: null,
+        powerMaxKw: null,
+        value: 0.3,
+        valueMax: 0.55,
+        unit: '€/kWh',
+        access: 'direct',
+        label: 'sites Yaway (éolien ~0,30 €/kWh)',
+      },
+    ],
     source: 'https://yaway-recharge.eu/',
     checkedAt: CHECKED_AT,
-    confidence: 'high',
+    confidence: 'medium',
     notes:
-      'Site officiel : prix par station (ex. ~0,30 €/kWh sur sites éoliens Yaway, plus élevé ailleurs). CB sans abonnement.',
+      'Prix par station affiché sur yaway-recharge.eu : ~0,30 €/kWh sur sites éoliens Yaway, plus élevé sur autres implantations. Fourchette indicative 0,30–0,55 €/kWh. CB sans abonnement.',
   },
   {
     id: 'we-go',
@@ -849,20 +985,34 @@ export interface OperatorTariffHeadline {
 export function getStationOperatorTariffHeadline(station: Station): OperatorTariffHeadline | null {
   const tariff = getOperatorTariff(station.nom_operateur)
   if (!tariff) return null
-  if (tariff.pricingModel !== 'national-fixed' && tariff.pricingModel !== 'regional-fixed') {
+  if (
+    tariff.pricingModel !== 'national-fixed' &&
+    tariff.pricingModel !== 'national-range' &&
+    tariff.pricingModel !== 'regional-fixed'
+  ) {
     return null
   }
 
   const tier = pickDirectTier(tariff, station.summary?.max_power ?? null)
   if (!tier) return null
 
-  let text = `≈ ${PRICE_FMT.format(tier.value)} ${tier.unit}`
+  let text: string
+  if (tier.valueMax != null && tier.valueMax > tier.value && tier.unit === '€/kWh') {
+    text = `≈ ${PRICE_FMT.format(tier.value)}–${PRICE_FMT.format(tier.valueMax)} ${tier.unit}`
+  } else {
+    text = `≈ ${PRICE_FMT.format(tier.value)} ${tier.unit}`
+  }
   if (tier.label) text += ` (${tier.label})`
   if (tariff.sessionFee) {
     text += ` + ${PRICE_FMT.format(tariff.sessionFee)} €/session`
   }
 
-  const scope = tariff.pricingModel === 'national-fixed' ? 'national' : 'régional'
+  const scope =
+    tariff.pricingModel === 'regional-fixed'
+      ? 'régional'
+      : tariff.pricingModel === 'national-range'
+        ? 'national (fourchette)'
+        : 'national'
   const checked = new Date(tariff.checkedAt).toLocaleDateString('fr-FR')
   const provenance = `Tarif ${scope} opérateur · accès direct · relevé le ${checked}`
 
