@@ -60,3 +60,13 @@ npm run deploy
 ```
 
 URL : [https://carto-irve.web.app](https://carto-irve.web.app)
+
+## Preview GitHub Pages
+
+CI (`.github/workflows/ci.yml`) : lint, tests, build sur chaque PR ; déploiement auto sur push `main`.
+
+Preview : [https://planification-ecologique.github.io/irve/](https://planification-ecologique.github.io/irve/)
+
+**Activation une fois** : repo → Settings → Pages → Source **GitHub Actions**.
+
+Sur GitHub Pages, pas de proxy `/api/irve` : repli sur `public/data/stations.json` (snapshot build).

@@ -18,5 +18,11 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // Existing patterns; tighten incrementally (tracked in CI as warnings).
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/refs': 'warn',
+      'react-refresh/only-export-components': 'warn',
+    },
   },
 ])

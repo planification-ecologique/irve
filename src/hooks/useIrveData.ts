@@ -29,7 +29,7 @@ export function useIrveData(enabled = true): UseIrveDataResult {
     }
 
     let cancelled = false
-    let intervalId: ReturnType<typeof window.setInterval> | undefined
+    let intervalId: number | undefined
 
     async function load(showLoading: boolean) {
       if (showLoading) {

@@ -8,6 +8,7 @@
     "fetch:slow": "node scripts/fetch-slow-stations.mjs",
     "build": "node scripts/fetch-stations.mjs && tsc -b && vite build",
     "lint": "eslint .",
+    "test": "vitest run --config vitest.config.ts",
     "preview": "vite preview",
     "deploy": "npm run build && firebase deploy --only hosting,functions --project carto-irve"
   },
@@ -31,6 +32,7 @@
     "globals": "^17.6.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "vitest": "^3.2.6"
   }
 }
