@@ -21,6 +21,7 @@ import { mergeStationLists } from '../lib/stationOrigin'
 import type { Theme } from '../lib/theme'
 import type { Station } from '../types/irve'
 import { ConnectorIcon, type ConnectorIconType } from './ConnectorIcon'
+import { PowerDistributionChart } from './PowerDistributionChart'
 import { StatsBar } from './StatsBar'
 import '../App.css'
 import '../Analytics.css'
@@ -281,10 +282,6 @@ export function AnalyticsPage({
   const maxOperator = sortedOperators[0]
     ? operatorMetricTotal(sortedOperators[0], chartMetric)
     : 1
-  const maxPower = Math.max(
-    ...displayPowerBuckets.map((b) => bucketMetricValue(b, chartMetric)),
-    1,
-  )
   const maxAmenageur = sortedAmenageurs[0]
     ? namedCountMetricValue(sortedAmenageurs[0], chartMetric)
     : 1
@@ -384,29 +381,15 @@ export function AnalyticsPage({
             <span className="analytics-kpi__value">{formatInt(analytics.highPowerStations, loading)}</span>
             <span className="analytics-kpi__label">Stations ≥ 100 kW</span>
           </article>
+          <article className="analytics-kpi">
+            <span className="analytics-kpi__value">
+              {loading
+                ? '…'
+                : formatAnalyticsPercent(analytics.withTarification, analytics.totalStations)}
+            </span>
+            <span className="analytics-kpi__label">Tarification</span>
+          </article>
         </section>
-
-        {anomalyWarnings.length > 0 && (
-          <section className="analytics-warnings" aria-label="Anomalies techniques">
-            <h3>Anomalies dans les données</h3>
-            <p className="analytics-warnings__intro">
-              Incohérences possibles dans les fiches source (QualiCharge / transport). Les
-              graphiques connecteurs peuvent être biaisés.
-            </p>
-            <ul className="analytics-warnings__list">
-              {anomalyWarnings.map((warning) => (
-                <li key={warning.id} className="analytics-warnings__item">
-                  <p className="analytics-warnings__title">{warning.title}</p>
-                  <p className="analytics-warnings__counts">
-                    {formatInt(warning.stations, loading)} stations · {formatInt(warning.pdc, loading)}{' '}
-                    PDC
-                  </p>
-                  <p className="analytics-warnings__desc">{warning.description}</p>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
 
         {analytics.liveAvailability && (
           <section className="analytics-panel" aria-label="Disponibilité PDC temps réel">
@@ -519,51 +502,44 @@ export function AnalyticsPage({
             </div>
           </section>
 
-          <section className="analytics-panel" aria-label="Puissance maximale">
-            <h3>Répartition par puissance max.</h3>
-            <p className="analytics-panel__hint">
-              {chartMetric === 'stations' ? 'Nombre de stations' : 'Nombre de PDC'} par tranche (kW max.
-              station)
-              {!addSlowLayer && ' · tranches < 50 kW masquées (données live uniquement)'}
-            </p>
-            <div className="analytics-bars">
-              {displayPowerBuckets.map((bucket) => (
-                <BarRow
-                  key={bucket.id}
-                  label={bucket.label}
-                  value={bucketMetricValue(bucket, chartMetric)}
-                  max={maxPower}
-                  color={bucket.color}
-                  loading={loading}
-                />
-              ))}
+          <section className="analytics-panel" aria-label="Puissance et connecteurs">
+            <div className="analytics-panel__section">
+              <h3>Répartition par puissance max.</h3>
+              <p className="analytics-panel__hint">
+                Part relative par tranche (kW max. station)
+                {!addSlowLayer && ' · tranches < 50 kW masquées (données live uniquement)'}
+              </p>
+              <PowerDistributionChart
+                buckets={displayPowerBuckets}
+                metric={chartMetric}
+                loading={loading}
+              />
+            </div>
+
+            <div className="analytics-panel__section analytics-panel__section--divider">
+              <h3>Connecteurs présents</h3>
+              <p className="analytics-panel__hint">
+                {chartMetric === 'stations'
+                  ? 'Stations ayant au moins une prise du type'
+                  : 'PDC sur stations ayant le connecteur'}
+              </p>
+              <div className="analytics-bars analytics-bars--connectors">
+                {ANALYTICS_CONNECTOR_ROWS.map((row) => (
+                  <BarRow
+                    key={row.key}
+                    label={row.label}
+                    icon={<ConnectorIcon type={row.type} size={26} />}
+                    value={connectorMetricValue(analytics.connectors[row.key], chartMetric)}
+                    max={maxConnector}
+                    loading={loading}
+                  />
+                ))}
+              </div>
             </div>
           </section>
         </div>
 
-        <div className="analytics-columns">
-          <section className="analytics-panel" aria-label="Connecteurs">
-            <h3>Connecteurs présents</h3>
-            <p className="analytics-panel__hint">
-              {chartMetric === 'stations'
-                ? 'Stations ayant au moins une prise du type'
-                : 'PDC sur stations ayant le connecteur'}
-            </p>
-            <div className="analytics-bars analytics-bars--connectors">
-              {ANALYTICS_CONNECTOR_ROWS.map((row) => (
-                <BarRow
-                  key={row.key}
-                  label={row.label}
-                  icon={<ConnectorIcon type={row.type} size={26} />}
-                  value={connectorMetricValue(analytics.connectors[row.key], chartMetric)}
-                  max={maxConnector}
-                  loading={loading}
-                />
-              ))}
-            </div>
-          </section>
-
-          <section className="analytics-panel" aria-label="Services et accès">
+        <section className="analytics-panel" aria-label="Services et accès">
             <h3>Services &amp; accès</h3>
             <div className="analytics-grid analytics-grid--services">
               <article className="analytics-kpi analytics-kpi--compact">
@@ -641,7 +617,27 @@ export function AnalyticsPage({
               </>
             )}
           </section>
-        </div>
+
+        {anomalyWarnings.length > 0 && (
+          <section className="analytics-warnings" aria-label="Anomalies techniques">
+            <h3>Anomalies dans les données</h3>
+            <p className="analytics-warnings__intro">
+              Incohérences possibles dans les fiches source (QualiCharge / transport). Les graphiques
+              connecteurs peuvent être biaisés.
+            </p>
+            <ul className="analytics-warnings__list">
+              {anomalyWarnings.map((warning) => (
+                <li key={warning.id} className="analytics-warnings__item">
+                  <p className="analytics-warnings__title">{warning.title}</p>
+                  <p className="analytics-warnings__counts">
+                    {formatInt(warning.stations, loading)} stations · {formatInt(warning.pdc, loading)} PDC
+                  </p>
+                  <p className="analytics-warnings__desc">{warning.description}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     </div>
   )
