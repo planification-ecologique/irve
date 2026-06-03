@@ -31,9 +31,11 @@ import {
 } from '../lib/tariffPowerRanges'
 import type { Station } from '../types/irve'
 import type { Theme } from '../lib/theme'
+import { MAP_PATH, navigate } from '../lib/routes'
 import { StatsBar } from './StatsBar'
 import { TariffQualityPieChart } from './TariffQualityPieChart'
 import { TariffBoxPlotChart } from './TariffRangeChart'
+import { FeedbackForm } from './FeedbackForm'
 import '../App.css'
 import '../Tariffs.css'
 
@@ -305,6 +307,7 @@ function TariffCard({ tariff }: { tariff: OperatorTariff }) {
 }
 
 export function TariffsPage({ theme, onToggleTheme, stations, loading = false }: TariffsPageProps) {
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [modelFilter, setModelFilter] = useState<ModelFilter>('all')
   const [confidenceFilter, setConfidenceFilter] = useState<ConfidenceFilter>('all')
@@ -323,15 +326,6 @@ export function TariffsPage({ theme, onToggleTheme, stations, loading = false }:
 
   const stationCountsByTariff = useMemo(
     () => computeStationCountsByTariff(stations, OPERATOR_TARIFFS),
-    [stations],
-  )
-
-  const stationsWithDisplayableGrid = useMemo(
-    () =>
-      countStationsCoveredByTariffs(
-        stations,
-        OPERATOR_TARIFFS.filter(tariffHasDisplayablePrice),
-      ),
     [stations],
   )
 
@@ -427,21 +421,28 @@ export function TariffsPage({ theme, onToggleTheme, stations, loading = false }:
       />
 
       <div className="tariffs-page">
+        <a
+          href={MAP_PATH}
+          className="page-back"
+          onClick={(event) => {
+            event.preventDefault()
+            navigate(MAP_PATH)
+          }}
+        >
+          <span aria-hidden="true">←</span> Retour à la carte
+        </a>
+
         <header className="tariffs-page__intro">
           <div className="tariffs-page__intro-text">
             <h2>Tarifs par opérateur</h2>
             <p>
               Grilles de référence éditoriales jointes aux stations sur{' '}
-              <code>nom_operateur</code> (QualiCharge). Données non live — à revérifier sur la
+              <code>nom_operateur</code> (QualiCharge). Données à revérifier sur la
               source avant toute décision.
             </p>
             <p className="tariffs-page__coverage">
               <strong>{OPERATOR_TARIFFS.length}</strong> fiches ·{' '}
-              <strong>{qualichargeOperatorCount}</strong> libellés <code>nom_operateur</code> ·{' '}
-              <strong>{STATION_COUNT_FMT.format(stations.length)}</strong> stations ·{' '}
-              <strong>{STATION_COUNT_FMT.format(stationsWithDisplayableGrid)}</strong> avec grille
-              dans le tableau — doublons de casse signalés dans la page <strong>Analyse</strong>.
-            </p>
+              <strong>{qualichargeOperatorCount}</strong> libellés <code>nom_operateur</code> ·            </p>
           </div>
         </header>
 
@@ -547,6 +548,17 @@ export function TariffsPage({ theme, onToggleTheme, stations, loading = false }:
           </div>
         )}
       </div>
+
+      <button
+        type="button"
+        className="feedback-fab"
+        onClick={() => setFeedbackOpen(true)}
+        title="Signaler un problème"
+      >
+        Signaler un problème
+      </button>
+
+      {feedbackOpen && <FeedbackForm onClose={() => setFeedbackOpen(false)} />}
     </div>
   )
 }
