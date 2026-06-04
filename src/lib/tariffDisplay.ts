@@ -1,5 +1,7 @@
 import {
   getOperatorTariff,
+  getStationOperatorTariffHeadline,
+  pickDirectTier,
   type OperatorTariff,
   type PricingModel,
   type TariffConfidence,
@@ -133,6 +135,69 @@ export function tariffHasDisplayablePrice(tariff: OperatorTariff): boolean {
       tariff.pricingModel === 'regional-fixed') &&
     tariff.tiers.some((t) => t.access === 'direct')
   )
+}
+
+/** Bornes du curseur « prix max » (€/kWh, accès direct). */
+export const PRICE_FILTER_MIN_KWH = 0.2
+export const PRICE_FILTER_MAX_KWH = 0.7
+export const PRICE_FILTER_STEP_KWH = 0.01
+
+/** Plafond par défaut = pas de filtre prix max actif. */
+export const PRICE_FILTER_DEFAULT_MAX_KWH = PRICE_FILTER_MAX_KWH
+
+export function isPriceMaxFilterActive(maxPricePerKwh: number): boolean {
+  return maxPricePerKwh < PRICE_FILTER_DEFAULT_MAX_KWH - PRICE_FILTER_STEP_KWH / 2
+}
+
+export function formatFilterPricePerKwh(value: number): string {
+  return PRICE_FMT.format(value)
+}
+
+/** Borne basse / haute €/kWh comparables (fourchette → max = tier.valueMax). */
+export function getStationPricePerKwhBounds(station: Station): { min: number; max: number } | null {
+  const { summary } = station
+
+  if (summary.price_per_kwh != null) {
+    return { min: summary.price_per_kwh, max: summary.price_per_kwh }
+  }
+
+  if (summary.pricing_value != null) {
+    const unit = summary.pricing_unit?.toLowerCase() ?? ''
+    if (unit.includes('kwh')) {
+      return { min: summary.pricing_value, max: summary.pricing_value }
+    }
+  }
+
+  const tariff = getOperatorTariff(station.nom_operateur)
+  if (!tariff) return null
+  if (
+    tariff.pricingModel !== 'national-fixed' &&
+    tariff.pricingModel !== 'national-range' &&
+    tariff.pricingModel !== 'regional-fixed'
+  ) {
+    return null
+  }
+
+  const tier = pickDirectTier(tariff, summary.max_power ?? null)
+  if (!tier || tier.unit !== '€/kWh') return null
+
+  return { min: tier.value, max: tier.valueMax ?? tier.value }
+}
+
+/** Prix QualiCharge ou tarif opérateur affichable (même logique que fiche station). */
+export function stationHasAvailablePrice(station: Station): boolean {
+  const { summary } = station
+  if (summary.pricing_headline) return true
+  if (summary.price_per_kwh != null) return true
+  if (summary.pricing_value != null) return true
+  return getStationOperatorTariffHeadline(station) != null
+}
+
+/** Passe si le tarif direct documenté est ≤ plafond (fourchette : borne haute). */
+export function stationMatchesMaxPriceFilter(station: Station, maxPricePerKwh: number): boolean {
+  const bounds = getStationPricePerKwhBounds(station)
+  if (!bounds) return false
+  return bounds.max <= maxPricePerKwh + 1e-9
 }
 
 export function compareTariffs(a: OperatorTariff, b: OperatorTariff): number {

@@ -12,6 +12,15 @@ import {
 import { CONNECTOR_META, CONNECTOR_FILTER_TYPES, stationHasConnector } from '../lib/connectors'
 import { isStaticStation } from '../lib/stationOrigin'
 import { matchesAvailabilityFilter, type AvailabilityFilter } from '../lib/stations'
+import {
+  formatFilterPricePerKwh,
+  isPriceMaxFilterActive,
+  PRICE_FILTER_DEFAULT_MAX_KWH,
+  PRICE_FILTER_MAX_KWH,
+  PRICE_FILTER_MIN_KWH,
+  PRICE_FILTER_STEP_KWH,
+  stationMatchesMaxPriceFilter,
+} from '../lib/tariffDisplay'
 import { getOperatorOptionsWithCounts, getOperatorRequiredNote, stationMatchesOperator } from '../lib/operators'
 import { ConnectorIcon } from './ConnectorIcon'
 
@@ -40,6 +49,7 @@ export interface FilterState {
   minPower: number
   connector: ConnectorType | null
   availability: AvailabilityFilter
+  maxPricePerKwh: number
 }
 
 export const defaultFilters: FilterState = {
@@ -48,6 +58,7 @@ export const defaultFilters: FilterState = {
   minPower: 50,
   connector: null,
   availability: 'all',
+  maxPricePerKwh: PRICE_FILTER_DEFAULT_MAX_KWH,
 }
 
 export function countActiveFilters(
@@ -65,6 +76,7 @@ export function countActiveFilters(
   if (!isSlowOnlyPowerFilter(filters.minPower) && filters.availability !== defaultFilters.availability) {
     count++
   }
+  if (isPriceMaxFilterActive(filters.maxPricePerKwh)) count++
   return count
 }
 
@@ -98,6 +110,13 @@ export function filterStations(
       }
 
       if (!stationMatchesOperator(station, filters.operator)) return false
+
+      if (
+        isPriceMaxFilterActive(filters.maxPricePerKwh) &&
+        !stationMatchesMaxPriceFilter(station, filters.maxPricePerKwh)
+      ) {
+        return false
+      }
 
       const connectorMinPower = isStatic || slowOnlyView ? 0 : filters.minPower
       if (filters.connector && !stationHasConnector(station.summary, filters.connector, connectorMinPower)) {
@@ -164,6 +183,12 @@ export function FiltersPanel({
       connector: filters.connector === connector ? null : connector,
     })
   }
+
+  const priceMaxActive = isPriceMaxFilterActive(filters.maxPricePerKwh)
+  const priceFillPct =
+    ((filters.maxPricePerKwh - PRICE_FILTER_MIN_KWH) /
+      (PRICE_FILTER_MAX_KWH - PRICE_FILTER_MIN_KWH)) *
+    100
 
   return (
     <section className="filters-panel">
@@ -253,6 +278,66 @@ export function FiltersPanel({
               </button>
             )
           })}
+        </div>
+      </div>
+
+      <div className="field">
+        <span>Prix max.</span>
+        <div
+          className={`price-filter${priceMaxActive ? ' price-filter--active' : ''}`}
+          title="Tarif direct documenté (€/kWh). Fourchettes : borne haute. Sans prix chiffré : exclu."
+        >
+          <div className="price-filter__head">
+            <span className="price-filter__value" aria-live="polite">
+              {priceMaxActive ? (
+                <>
+                  ≤{' '}
+                  <strong>{formatFilterPricePerKwh(filters.maxPricePerKwh)}</strong>
+                  <span className="price-filter__unit">€/kWh</span>
+                </>
+              ) : (
+                <span className="price-filter__value-all">Tous les prix</span>
+              )}
+            </span>
+            {priceMaxActive && (
+              <button
+                type="button"
+                className="price-filter__reset"
+                onClick={() =>
+                  onChange({ ...filters, maxPricePerKwh: PRICE_FILTER_DEFAULT_MAX_KWH })
+                }
+              >
+                Réinitialiser
+              </button>
+            )}
+          </div>
+          <label className="price-filter__track-wrap">
+            <span className="visually-hidden">Prix maximum en euros par kilowattheure</span>
+            <input
+              type="range"
+              className="price-filter__range"
+              min={PRICE_FILTER_MIN_KWH}
+              max={PRICE_FILTER_MAX_KWH}
+              step={PRICE_FILTER_STEP_KWH}
+              value={filters.maxPricePerKwh}
+              style={{ '--price-fill': `${priceFillPct}%` }}
+              aria-valuemin={PRICE_FILTER_MIN_KWH}
+              aria-valuemax={PRICE_FILTER_MAX_KWH}
+              aria-valuenow={filters.maxPricePerKwh}
+              aria-valuetext={
+                priceMaxActive
+                  ? `Maximum ${formatFilterPricePerKwh(filters.maxPricePerKwh)} euros par kilowattheure`
+                  : 'Aucun plafond'
+              }
+              onChange={(event) =>
+                onChange({ ...filters, maxPricePerKwh: Number(event.target.value) })
+              }
+            />
+          </label>
+          <div className="price-filter__scale" aria-hidden="true">
+            <span>{formatFilterPricePerKwh(PRICE_FILTER_MIN_KWH)}</span>
+            <span>Tous</span>
+          </div>
         </div>
       </div>
 
