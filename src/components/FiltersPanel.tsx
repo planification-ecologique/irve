@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import type { Station, ConnectorType } from '../types/irve'
 import { TRANSPORT_IRVE_DATASET_URL, SLOW_MAX_POWER_KW } from '../api/transportIrve'
 import {
@@ -285,6 +285,7 @@ export function FiltersPanel({
         <span>Prix max.</span>
         <div
           className={`price-filter${priceMaxActive ? ' price-filter--active' : ''}`}
+          style={{ '--price-fill': `${priceFillPct}%` } as CSSProperties}
           title="Tarif direct documenté (€/kWh). Fourchettes : borne haute. Sans prix chiffré : exclu."
         >
           <div className="price-filter__head">
@@ -320,7 +321,6 @@ export function FiltersPanel({
               max={PRICE_FILTER_MAX_KWH}
               step={PRICE_FILTER_STEP_KWH}
               value={filters.maxPricePerKwh}
-              style={{ '--price-fill': `${priceFillPct}%` }}
               aria-valuemin={PRICE_FILTER_MIN_KWH}
               aria-valuemax={PRICE_FILTER_MAX_KWH}
               aria-valuenow={filters.maxPricePerKwh}
