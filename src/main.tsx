@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { applyTheme, getStoredTheme } from './lib/theme'
+import './dsfr-fonts.css'
 import './index.css'
 import App from './App.tsx'
 
