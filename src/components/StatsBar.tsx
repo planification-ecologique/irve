@@ -111,7 +111,7 @@ export function StatsBar({
           className="stats-bar__logo"
         />
         <div className="stats-bar__identity">
-          <h1>Cartes de recharge en itinérance</h1>
+          <h1>Recharger en itinérance</h1>
           <p>Données ouvertes - recharge électrique en itinérance (&gt;50 kW)</p>
           <AppNav active={activePage} />
         </div>
