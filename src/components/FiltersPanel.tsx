@@ -1,5 +1,5 @@
 import { useMemo, useState, type CSSProperties } from 'react'
-import type { Station, ConnectorType } from '../types/irve'
+import type { Station } from '../types/irve'
 import { TRANSPORT_IRVE_DATASET_URL, SLOW_MAX_POWER_KW } from '../api/transportIrve'
 import {
   MIN_POWER_THRESHOLDS,
@@ -9,7 +9,7 @@ import {
   isSlowOnlyPowerFilter,
   POWER_LABELS,
 } from '../lib/power'
-import { CONNECTOR_META, CONNECTOR_FILTER_TYPES, stationHasConnector } from '../lib/connectors'
+import { isChademoOnlyWithoutCcs } from '../lib/connectors'
 import { isStaticStation } from '../lib/stationOrigin'
 import { matchesAvailabilityFilter, type AvailabilityFilter } from '../lib/stations'
 import {
@@ -22,8 +22,6 @@ import {
   stationMatchesMaxPriceFilter,
 } from '../lib/tariffDisplay'
 import { getOperatorOptionsWithCounts, getOperatorRequiredNote, stationMatchesOperator } from '../lib/operators'
-import { ConnectorIcon } from './ConnectorIcon'
-
 export type { AvailabilityFilter }
 
 const AVAILABILITY_OPTIONS: {
@@ -47,7 +45,6 @@ export interface FilterState {
   search: string
   operator: string | null
   minPower: number
-  connector: ConnectorType | null
   availability: AvailabilityFilter
   maxPricePerKwh: number
 }
@@ -56,7 +53,6 @@ export const defaultFilters: FilterState = {
   search: '',
   operator: null,
   minPower: 50,
-  connector: null,
   availability: 'all',
   maxPricePerKwh: PRICE_FILTER_DEFAULT_MAX_KWH,
 }
@@ -72,7 +68,6 @@ export function countActiveFilters(
   if (isSlowOnlyPowerFilter(filters.minPower) || filters.minPower !== defaultFilters.minPower) {
     count++
   }
-  if (filters.connector) count++
   if (!isSlowOnlyPowerFilter(filters.minPower) && filters.availability !== defaultFilters.availability) {
     count++
   }
@@ -107,6 +102,7 @@ export function filterStations(
       } else {
         if (station.summary.max_power < filters.minPower) return false
         if (!matchesAvailabilityFilter(station, filters.availability)) return false
+        if (isChademoOnlyWithoutCcs(station.summary)) return false
       }
 
       if (!stationMatchesOperator(station, filters.operator)) return false
@@ -115,11 +111,6 @@ export function filterStations(
         isPriceMaxFilterActive(filters.maxPricePerKwh) &&
         !stationMatchesMaxPriceFilter(station, filters.maxPricePerKwh)
       ) {
-        return false
-      }
-
-      const connectorMinPower = isStatic || slowOnlyView ? 0 : filters.minPower
-      if (filters.connector && !stationHasConnector(station.summary, filters.connector, connectorMinPower)) {
         return false
       }
 
@@ -176,13 +167,6 @@ export function FiltersPanel({
     () => getOperatorOptionsWithCounts(stations),
     [stations],
   )
-
-  const selectConnector = (connector: ConnectorType) => {
-    onChange({
-      ...filters,
-      connector: filters.connector === connector ? null : connector,
-    })
-  }
 
   const priceMaxActive = isPriceMaxFilterActive(filters.maxPricePerKwh)
   const priceFillPct =
@@ -254,30 +238,6 @@ export function FiltersPanel({
           >
             &lt; {SLOW_MAX_POWER_KW} kW
           </button>
-        </div>
-      </div>
-
-      <div className="field">
-        <span>Connecteurs</span>
-        <div className="connector-filters">
-          {CONNECTOR_FILTER_TYPES.map((connector) => {
-            const active = filters.connector === connector
-            const meta = CONNECTOR_META[connector]
-
-            return (
-              <button
-                key={connector}
-                type="button"
-                className={`connector-filter${active ? ' connector-filter--active' : ''}`}
-                onClick={() => selectConnector(connector)}
-                title={meta.label}
-                aria-pressed={active}
-              >
-                <ConnectorIcon type={connector} size={32} />
-                <span>{meta.shortLabel}</span>
-              </button>
-            )
-          })}
         </div>
       </div>
 
