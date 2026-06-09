@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "fetch:slow": "node scripts/fetch-slow-stations.mjs",
     "fetch:contacts": "node scripts/fetch-station-contacts.mjs",
     "build": "node scripts/fetch-stations.mjs && tsc -b && vite build",

@@ -1,4 +1,4 @@
-import { ANALYTICS_PATH, MAP_PATH, TARIFFS_PATH, type AppPage } from '../lib/routes'
+import { ANALYTICS_PATH, MAP_PATH, TARIFFS_PATH, TRIPS_PATH, type AppPage } from '../lib/routes'
 
 interface AppNavProps {
   active: AppPage
@@ -6,6 +6,7 @@ interface AppNavProps {
 
 const LINKS: { page: AppPage; href: string; label: string }[] = [
   { page: 'map', href: MAP_PATH, label: 'Carte' },
+  { page: 'trips', href: TRIPS_PATH, label: 'Mes trajets' },
   { page: 'analytics', href: ANALYTICS_PATH, label: 'Analyse' },
   { page: 'tariffs', href: TARIFFS_PATH, label: 'Tarifs' },
 ]

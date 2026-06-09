@@ -11,7 +11,8 @@ import { AnalyticsPage } from './components/AnalyticsPage'
 import { IrveMap } from './components/IrveMap'
 import { StatsBar } from './components/StatsBar'
 import { TariffsPage } from './components/TariffsPage'
-import { getAppPage, isAnalyticsPath, isTariffsPath } from './lib/routes'
+import { TripsPage } from './components/TripsPage'
+import { getAppPage, isAnalyticsPath, isTariffsPath, isTripsPath } from './lib/routes'
 import { FiltersPanel } from './components/FiltersPanel'
 import { StationDetail } from './components/StationDetail'
 import { FeedbackForm } from './components/FeedbackForm'
@@ -69,6 +70,7 @@ function App() {
 
   const isAnalytics = isAnalyticsPath(pathname)
   const isTariffs = isTariffsPath(pathname)
+  const isTrips = isTripsPath(pathname)
   const activePage = getAppPage(pathname)
 
   const handleAddSlowLayerChange = useCallback((enabled: boolean) => {
@@ -106,6 +108,10 @@ function App() {
         loading={loading}
       />
     )
+  }
+
+  if (isTrips) {
+    return <TripsPage />
   }
 
   return (

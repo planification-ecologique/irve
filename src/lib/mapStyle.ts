@@ -19,23 +19,29 @@ const STATION_LAYER_IDS = new Set([
   'unclustered-point-glow',
 ])
 
+const ROUTE_LAYER_IDS = new Set(['route-line-glow', 'route-line', 'route-endpoints'])
+
 /** Conserve source + calques stations lors d'un swap de fond de carte. */
 export function preserveStationStyle(
   previousStyle: StyleSpecification | undefined,
   nextStyle: StyleSpecification,
 ): StyleSpecification {
   const stationsSource = previousStyle?.sources?.stations
-  if (!stationsSource) return nextStyle
+  const routeSource = previousStyle?.sources?.route
+  if (!stationsSource && !routeSource) return nextStyle
 
-  const stationLayers = previousStyle.layers.filter((layer) => STATION_LAYER_IDS.has(layer.id))
+  const preservedLayers = previousStyle.layers.filter(
+    (layer) => STATION_LAYER_IDS.has(layer.id) || ROUTE_LAYER_IDS.has(layer.id),
+  )
 
   return {
     ...nextStyle,
     sources: {
       ...nextStyle.sources,
-      stations: stationsSource,
+      ...(stationsSource ? { stations: stationsSource } : {}),
+      ...(routeSource ? { route: routeSource } : {}),
     },
-    layers: [...nextStyle.layers, ...stationLayers],
+    layers: [...nextStyle.layers, ...preservedLayers],
   }
 }
 

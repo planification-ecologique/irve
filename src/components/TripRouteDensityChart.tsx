@@ -1,0 +1,363 @@
+import { useMemo, useState } from 'react'
+import { formatTripCityLabel } from '../lib/buildTrip'
+import { computeTripSegmentMinPrices, formatCompactPricePerKwh } from '../lib/tripPricing'
+import type { StationOnRoute } from '../lib/tripCoverage'
+import {
+  buildSvgLinePath,
+  buildSvgLinePathsWithGaps,
+  computeRollingRouteDensity,
+  computeRouteGapBands,
+  computeSparseRouteBands,
+  formatPriceAxisTick,
+  isDensityValueCapped,
+  MAX_DENSITY_BIN_SCALE,
+  rollingWindowKm,
+  routeDensityScaleMax,
+  routeDensityTicks,
+  routeDensityValueHeight,
+  routeGapWarningKm,
+  routePriceScale,
+  routePriceY,
+  sumRouteAvailablePdc,
+  sumRoutePdc,
+} from '../lib/tripRouteDensity'
+
+interface TripRouteDensityChartProps {
+  fromLabel: string
+  toLabel: string
+  routeLengthKm: number
+  vehicleRangeKm: number
+  stations: StationOnRoute[]
+}
+
+const CHART_WIDTH = 960
+const CHART_HEIGHT = 168
+const PAD_LEFT = 36
+const PAD_RIGHT = 40
+const PAD_TOP = 16
+const PAD_BOTTOM = 30
+const PLOT_HEIGHT = CHART_HEIGHT - PAD_TOP - PAD_BOTTOM
+
+interface HoveredSample {
+  km: number
+  stationCount: number
+  pdcCount: number
+  availablePdcCount: number
+  minPricePerKwh: number | null
+}
+
+export function TripRouteDensityChart({
+  fromLabel,
+  toLabel,
+  routeLengthKm,
+  vehicleRangeKm,
+  stations,
+}: TripRouteDensityChartProps) {
+  const [hovered, setHovered] = useState<HoveredSample | null>(null)
+  const plotWidth = CHART_WIDTH - PAD_LEFT - PAD_RIGHT
+  const safeLength = Math.max(routeLengthKm, 1)
+  const windowKm = rollingWindowKm(routeLengthKm)
+  const gapWarningKm = routeGapWarningKm(vehicleRangeKm)
+  const totalPdc = sumRoutePdc(stations)
+  const totalAvailablePdc = sumRouteAvailablePdc(stations)
+
+  const samples = useMemo(
+    () => computeRollingRouteDensity(routeLengthKm, stations, windowKm),
+    [routeLengthKm, stations, windowKm],
+  )
+
+  const stationScaleMax = routeDensityScaleMax(samples.map((sample) => sample.stationCount))
+  const pdcScaleMax = routeDensityScaleMax(
+    samples.map((sample) => Math.ceil(sample.pdcCount / 3)),
+  )
+  const hasCappedStationValues = samples.some((sample) =>
+    isDensityValueCapped(sample.stationCount, stationScaleMax),
+  )
+  const gapBands = useMemo(
+    () => computeRouteGapBands(routeLengthKm, stations, gapWarningKm),
+    [routeLengthKm, stations, gapWarningKm],
+  )
+  const sparseBands = useMemo(() => computeSparseRouteBands(samples), [samples])
+  const ticks = useMemo(() => routeDensityTicks(routeLengthKm), [routeLengthKm])
+
+  const xForKm = (km: number) => PAD_LEFT + (km / safeLength) * plotWidth
+  const yForStations = (count: number) =>
+    PAD_TOP + PLOT_HEIGHT - routeDensityValueHeight(count, stationScaleMax, PLOT_HEIGHT)
+  const yForPdc = (pdcCount: number) =>
+    PAD_TOP +
+    PLOT_HEIGHT -
+    routeDensityValueHeight(Math.ceil(pdcCount / 3), pdcScaleMax, PLOT_HEIGHT)
+
+  const stationLinePath = buildSvgLinePath(
+    samples.map((sample) => ({ x: xForKm(sample.km), y: yForStations(sample.stationCount) })),
+  )
+  const pdcLinePath = buildSvgLinePath(
+    samples.map((sample) => ({ x: xForKm(sample.km), y: yForPdc(sample.pdcCount) })),
+  )
+
+  const pricedMinSamples = samples.filter((sample) => sample.minPricePerKwh != null)
+  const priceScale = routePriceScale(
+    pricedMinSamples.map((sample) => sample.minPricePerKwh as number),
+  )
+  const yForMinPrice = (price: number) =>
+    routePriceY(price, priceScale, PLOT_HEIGHT, PAD_TOP)
+  const minPriceLinePaths = buildSvgLinePathsWithGaps(
+    samples.map((sample) => ({
+      x: xForKm(sample.km),
+      y: sample.minPricePerKwh != null ? yForMinPrice(sample.minPricePerKwh) : null,
+    })),
+  )
+  const hasMinPriceCurve = minPriceLinePaths.length > 0
+
+  const rangeBands = useMemo(() => {
+    const bands: { startKm: number; endKm: number }[] = []
+    for (let start = 0; start < safeLength; start += vehicleRangeKm) {
+      bands.push({ startKm: start, endKm: Math.min(start + vehicleRangeKm, safeLength) })
+    }
+    return bands
+  }, [safeLength, vehicleRangeKm])
+
+  const segmentPrices = useMemo(
+    () => computeTripSegmentMinPrices(routeLengthKm, stations, vehicleRangeKm),
+    [routeLengthKm, stations, vehicleRangeKm],
+  )
+  const hasSegmentPrices = segmentPrices.some((segment) => segment.minPricePerKwh != null)
+
+  const pickSample = (km: number) => {
+    if (samples.length === 0) return
+    const nearest = samples.reduce((best, sample) =>
+      Math.abs(sample.km - km) < Math.abs(best.km - km) ? sample : best,
+    )
+    setHovered(nearest)
+  }
+
+  const clearSample = () => {
+    setHovered(null)
+  }
+
+  return (
+    <section className="trips-density" aria-label="Couverture des stations le long du trajet">
+      <div className="trips-density__header">
+        <div>
+          <h3>Couverture le long du trajet</h3>
+          <p className="trips-density__subtitle">
+            Fenêtre glissante {windowKm} km · corridor 15 km
+            {hasCappedStationValues && (
+              <> · courbe stations plafonnée à {MAX_DENSITY_BIN_SCALE}</>
+            )}
+          </p>
+        </div>
+        <div className="trips-density__legend" aria-hidden="true">
+          <span className="trips-density__legend-item trips-density__legend-item--stations">
+            Stations
+          </span>
+          <span className="trips-density__legend-item trips-density__legend-item--pdc">
+            PDC
+          </span>
+          <span className="trips-density__legend-item trips-density__legend-item--gap">
+            Intervalle ≥ {gapWarningKm} km
+          </span>
+          {hasMinPriceCurve && (
+            <span className="trips-density__legend-item trips-density__legend-item--price">
+              Min €/kWh
+            </span>
+          )}
+        </div>
+      </div>
+
+      <p className="trips-density__counts">
+        {stations.length.toLocaleString('fr-FR')} stations ·{' '}
+        {totalPdc.toLocaleString('fr-FR')} PDC
+        {totalAvailablePdc > 0 && (
+          <> · {totalAvailablePdc.toLocaleString('fr-FR')} PDC dispo</>
+        )}
+      </p>
+
+      <div className="trips-density__chart-wrap">
+        <svg
+          className="trips-density__chart"
+          viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+          role="img"
+          aria-label={`Couverture de ${stations.length} stations et ${totalPdc} points de charge sur ${Math.round(routeLengthKm)} kilomètres`}
+          onMouseLeave={clearSample}
+          onPointerLeave={clearSample}
+        >
+          {rangeBands.map((band) => (
+            <rect
+              key={`${band.startKm}-${band.endKm}`}
+              x={xForKm(band.startKm)}
+              y={PAD_TOP}
+              width={Math.max(1, xForKm(band.endKm) - xForKm(band.startKm))}
+              height={PLOT_HEIGHT}
+              className="trips-density__range-band"
+            />
+          ))}
+
+          {sparseBands.map((band) => (
+            <rect
+              key={`sparse-${band.startKm}-${band.endKm}`}
+              x={xForKm(band.startKm)}
+              y={PAD_TOP}
+              width={Math.max(1, xForKm(band.endKm) - xForKm(band.startKm))}
+              height={PLOT_HEIGHT}
+              className="trips-density__sparse-band"
+            />
+          ))}
+
+          {gapBands.map((band) => (
+            <rect
+              key={`gap-${band.startKm}-${band.endKm}`}
+              x={xForKm(band.startKm)}
+              y={PAD_TOP}
+              width={Math.max(1, xForKm(band.endKm) - xForKm(band.startKm))}
+              height={PLOT_HEIGHT}
+              className="trips-density__gap-band"
+            >
+              <title>
+                Intervalle {Math.round(band.gapKm)} km sans station (≥ {gapWarningKm} km)
+              </title>
+            </rect>
+          ))}
+
+          {[0, stationScaleMax].map((tick) => (
+            <g key={`y-station-${tick}`} className="trips-density__y-tick">
+              <text x={PAD_LEFT - 6} y={yForStations(tick) + 3} textAnchor="end">
+                {tick}
+              </text>
+            </g>
+          ))}
+
+          {hasMinPriceCurve &&
+            [priceScale.min, priceScale.max].map((tick) => (
+              <g key={`y-price-${tick}`} className="trips-density__y-tick trips-density__y-tick--price">
+                <text
+                  x={PAD_LEFT + plotWidth + 6}
+                  y={yForMinPrice(tick) + 3}
+                  textAnchor="start"
+                >
+                  {formatPriceAxisTick(tick)}
+                </text>
+              </g>
+            ))}
+
+          <line
+            x1={PAD_LEFT}
+            y1={PAD_TOP + PLOT_HEIGHT}
+            x2={PAD_LEFT + plotWidth}
+            y2={PAD_TOP + PLOT_HEIGHT}
+            className="trips-density__baseline"
+          />
+
+          {pdcLinePath && (
+            <path d={pdcLinePath} className="trips-density__line trips-density__line--pdc" />
+          )}
+          {minPriceLinePaths.map((path, index) => (
+            <path
+              key={`min-price-${index}`}
+              d={path}
+              className="trips-density__line trips-density__line--min-price"
+            />
+          ))}
+
+          {stationLinePath && (
+            <path
+              d={stationLinePath}
+              className="trips-density__line trips-density__line--stations"
+            />
+          )}
+
+          {hasSegmentPrices &&
+            segmentPrices.map((segment) => {
+              if (segment.minPricePerKwh == null) return null
+              const centerKm = (segment.startKm + segment.endKm) / 2
+              const bandWidth = xForKm(segment.endKm) - xForKm(segment.startKm)
+              if (bandWidth < 28) return null
+              const labelY = yForMinPrice(segment.minPricePerKwh)
+
+              return (
+                <g
+                  key={`price-label-${segment.startKm}-${segment.endKm}`}
+                  className="trips-density__segment-price"
+                >
+                  <title>
+                    Tronçon {Math.round(segment.startKm)}–{Math.round(segment.endKm)} km : min{' '}
+                    {formatCompactPricePerKwh(segment.minPricePerKwh)}/kWh CB direct (
+                    {segment.pricedStationCount}/{segment.stationCount} stations tarifées)
+                  </title>
+                  <text
+                    x={xForKm(centerKm)}
+                    y={labelY}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    className="trips-density__segment-price-label"
+                  >
+                    min {formatCompactPricePerKwh(segment.minPricePerKwh)}
+                  </text>
+                </g>
+              )
+            })}
+
+          {samples.map((sample) => (
+            <rect
+              key={sample.km}
+              x={xForKm(sample.km) - 8}
+              y={PAD_TOP}
+              width={16}
+              height={PLOT_HEIGHT}
+              className="trips-density__hover-target"
+              onPointerEnter={() => pickSample(sample.km)}
+              onPointerDown={(event) => {
+                event.preventDefault()
+                pickSample(sample.km)
+              }}
+            >
+              <title>
+                {Math.round(sample.km)} km : {sample.stationCount} station
+                {sample.stationCount > 1 ? 's' : ''}, {sample.pdcCount} PDC (
+                {sample.availablePdcCount} dispo) / {windowKm} km
+                {sample.minPricePerKwh != null &&
+                  ` · min ${formatCompactPricePerKwh(sample.minPricePerKwh)}/kWh`}
+              </title>
+            </rect>
+          ))}
+
+          {ticks.map((km) => (
+            <g key={km} className="trips-density__tick">
+              <line
+                x1={xForKm(km)}
+                y1={PAD_TOP + PLOT_HEIGHT}
+                x2={xForKm(km)}
+                y2={PAD_TOP + PLOT_HEIGHT + 4}
+              />
+              <text x={xForKm(km)} y={CHART_HEIGHT - 6} textAnchor="middle">
+                {Math.round(km)}
+              </text>
+            </g>
+          ))}
+        </svg>
+
+        {hovered && (
+          <div
+            className="trips-density__tooltip"
+            style={{ left: `${(hovered.km / safeLength) * 100}%` }}
+          >
+            <strong>{Math.round(hovered.km)} km</strong>
+            <span>
+              {hovered.stationCount} station{hovered.stationCount > 1 ? 's' : ''} ·{' '}
+              {hovered.pdcCount} PDC · {hovered.availablePdcCount} dispo
+              {hovered.minPricePerKwh != null && (
+                <> · min {formatCompactPricePerKwh(hovered.minPricePerKwh)}/kWh</>
+              )}
+            </span>
+            <span className="trips-density__tooltip-hint">fenêtre {windowKm} km</span>
+          </div>
+        )}
+
+        <div className="trips-density__labels">
+          <span>{formatTripCityLabel(fromLabel)}</span>
+          <span>{formatTripCityLabel(toLabel)}</span>
+        </div>
+      </div>
+    </section>
+  )
+}
