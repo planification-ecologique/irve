@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Station } from '../types/irve'
-import { computeTripPriceSummary, computeTripSegmentMinPrices, resolveStationDirectPricePerKwh } from './tripPricing'
+import { computeStopZonePriceEstimate, computeTripPriceSummary, computeTripSegmentMinPrices, formatStopZonePriceDetails, resolveStationDirectPricePerKwh } from './tripPricing'
 
 function station(
   operator: string,
@@ -82,5 +82,19 @@ describe('tripPricing', () => {
 
     expect(segments).toHaveLength(1)
     expect(segments[0]?.minPricePerKwh).not.toBeNull()
+  })
+
+  it('estime le prix moyen pondéré par zone d arrêt', () => {
+    const estimate = computeStopZonePriceEstimate([
+      station('Ionity', 350, 4),
+      station('TotalEnergies Marketing France', 150, 2),
+    ])
+
+    expect(estimate.avgPricePerKwh).not.toBeNull()
+    expect(estimate.minPricePerKwh).not.toBeNull()
+    expect(estimate.pricedStationCount).toBe(2)
+    expect(formatStopZonePriceDetails(estimate.minPricePerKwh, estimate.avgPricePerKwh)).toMatch(
+      /min .* · moy\..*€\/kWh$/,
+    )
   })
 })

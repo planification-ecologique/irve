@@ -88,3 +88,18 @@ export function formatTripCityLabel(label: string): string {
   const lastPart = label.split(',').pop()?.trim() ?? label
   return lastPart.replace(/^\d{5}\s*/, '').trim() || label
 }
+
+export function formatRouteDuration(totalMinutes: number): string {
+  const safeMinutes = Math.max(0, Math.round(totalMinutes))
+  if (safeMinutes < 60) {
+    return `${safeMinutes} min`
+  }
+
+  const hours = Math.floor(safeMinutes / 60)
+  const minutes = safeMinutes % 60
+  if (minutes === 0) {
+    return `${hours} h`
+  }
+
+  return `${hours} h ${String(minutes).padStart(2, '0')}`
+}

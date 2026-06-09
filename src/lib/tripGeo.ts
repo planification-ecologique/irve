@@ -124,3 +124,32 @@ export function projectPointOnPolyline(
     distanceFromRouteKm: bestDist,
   }
 }
+
+/** Point [lng, lat] le long d'une polyligne à la distance cumulée km. */
+export function interpolateRoutePointAtKm(
+  coordinates: [number, number][],
+  km: number,
+): [number, number] | null {
+  if (coordinates.length === 0) return null
+  if (coordinates.length === 1) return coordinates[0]!
+
+  const target = Math.max(0, km)
+  let traversed = 0
+
+  for (let i = 1; i < coordinates.length; i += 1) {
+    const [lng1, lat1] = coordinates[i - 1]!
+    const [lng2, lat2] = coordinates[i]!
+    const segLen = haversineKm({ lat: lat1, lng: lng1 }, { lat: lat2, lng: lng2 })
+
+    if (segLen <= 0) continue
+
+    if (traversed + segLen >= target) {
+      const t = Math.max(0, Math.min(1, (target - traversed) / segLen))
+      return [lng1 + t * (lng2 - lng1), lat1 + t * (lat2 - lat1)]
+    }
+
+    traversed += segLen
+  }
+
+  return coordinates[coordinates.length - 1] ?? null
+}

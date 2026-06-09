@@ -25,6 +25,12 @@ export interface TripSegmentPrice {
   stationCount: number
 }
 
+export interface StopZonePriceEstimate {
+  minPricePerKwh: number | null
+  avgPricePerKwh: number | null
+  pricedStationCount: number
+}
+
 interface PriceSample {
   value: number
   weight: number
@@ -114,6 +120,36 @@ export function computeTripSegmentMinPrices(
   return segments
 }
 
+/** Estimation €/kWh CB direct pour les stations d'une zone d'arrêt. */
+export function computeStopZonePriceEstimate(stations: Station[]): StopZonePriceEstimate {
+  const samples: PriceSample[] = []
+  const mins: number[] = []
+
+  for (const station of stations) {
+    const min = resolveStationDirectPriceMinPerKwh(station)
+    const avg = resolveStationDirectPricePerKwh(station)
+    if (min != null) mins.push(min)
+    if (avg != null) samples.push({ value: avg, weight: station.pdc_count })
+  }
+
+  if (samples.length === 0) {
+    return {
+      minPricePerKwh: null,
+      avgPricePerKwh: null,
+      pricedStationCount: 0,
+    }
+  }
+
+  const priceSum = samples.reduce((sum, sample) => sum + sample.value * sample.weight, 0)
+  const totalPdc = samples.reduce((sum, sample) => sum + sample.weight, 0)
+
+  return {
+    minPricePerKwh: mins.length > 0 ? Math.min(...mins) : null,
+    avgPricePerKwh: totalPdc > 0 ? priceSum / totalPdc : null,
+    pricedStationCount: samples.length,
+  }
+}
+
 const COMPACT_PRICE_FMT = new Intl.NumberFormat('fr-FR', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
@@ -121,6 +157,29 @@ const COMPACT_PRICE_FMT = new Intl.NumberFormat('fr-FR', {
 
 export function formatCompactPricePerKwh(value: number): string {
   return `${COMPACT_PRICE_FMT.format(value)}\u00a0€`
+}
+
+export function formatStopZonePriceDetailsCompact(
+  minPricePerKwh: number | null,
+  avgPricePerKwh: number | null,
+): string | null {
+  if (minPricePerKwh == null && avgPricePerKwh == null) return null
+
+  const parts: string[] = []
+  if (minPricePerKwh != null) {
+    parts.push(`min ${formatCompactPricePerKwh(minPricePerKwh)}`)
+  }
+  if (avgPricePerKwh != null) {
+    parts.push(`moy. ${formatCompactPricePerKwh(avgPricePerKwh)}`)
+  }
+  return `${parts.join(' · ')} €/kWh`
+}
+
+export function formatStopZonePriceDetails(
+  minPricePerKwh: number | null,
+  avgPricePerKwh: number | null,
+): string | null {
+  return formatStopZonePriceDetailsCompact(minPricePerKwh, avgPricePerKwh)
 }
 
 export function computeTripPriceSummary(stations: Station[]): TripPriceSummary {

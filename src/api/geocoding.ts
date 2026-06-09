@@ -25,6 +25,16 @@ interface BanSearchResponse {
 
 const BAN_SEARCH_URL = 'https://api-adresse.data.gouv.fr/search/'
 
+/** Commune avec arrondissements (Paris, Lyon, Marseille) — hors suggestions trajets. */
+export function isBanArrondissement(name: string): boolean {
+  return /\d+(?:er|e|ème)\s+arrondissement/i.test(name.trim())
+}
+
+function isArrondissementFeature(feature: BanFeature): boolean {
+  const { city, name } = feature.properties
+  return isBanArrondissement(city ?? '') || isBanArrondissement(name ?? '')
+}
+
 /** Nom de commune affichable (sans adresse postale). */
 export function cityNameFromBanFeature(feature: BanFeature): string {
   const { city, name, label, type } = feature.properties
@@ -41,7 +51,7 @@ export async function searchPlaces(query: string, limit = 6): Promise<GeocodedPl
 
   const params = new URLSearchParams({
     q: trimmed,
-    limit: String(limit),
+    limit: String(Math.max(limit * 3, 12)),
     autocomplete: '1',
     type: 'municipality',
   })
@@ -52,17 +62,30 @@ export async function searchPlaces(query: string, limit = 6): Promise<GeocodedPl
   }
 
   const data = (await response.json()) as BanSearchResponse
-  return data.features.map((feature) => {
+  const seen = new Set<string>()
+  const results: GeocodedPlace[] = []
+
+  for (const feature of data.features) {
+    if (isArrondissementFeature(feature)) continue
+
     const [lng, lat] = feature.geometry.coordinates
     const city = cityNameFromBanFeature(feature)
-    return {
+    const key = city.toLocaleLowerCase('fr-FR')
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    results.push({
       label: city,
       lat,
       lng,
       city,
       score: feature.properties.score,
-    }
-  })
+    })
+
+    if (results.length >= limit) break
+  }
+
+  return results
 }
 
 export async function geocodePlace(query: string): Promise<GeocodedPlace | null> {

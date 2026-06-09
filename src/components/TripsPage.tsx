@@ -3,15 +3,18 @@ import { searchPlaces, type GeocodedPlace } from '../api/geocoding'
 import { useIrveData } from '../hooks/useIrveData'
 import { useSavedTrips } from '../hooks/useSavedTrips'
 import { useTheme } from '../hooks/useTheme'
-import { buildSavedTrip, tripLabel } from '../lib/buildTrip'
+import { buildSavedTrip, formatRouteDuration, tripLabel } from '../lib/buildTrip'
 import {
   computeCoverageScore,
+  computeTripChargeStops,
   buildStationLookup,
   resolveStationsOnRoute,
-  type StationOnRoute,
+  tripChargeStopCount,
+  type TripChargeStop,
 } from '../lib/tripCoverage'
 import { MIN_POWER_THRESHOLDS, POWER_LABELS } from '../lib/power'
 import { computeTripPriceSummary } from '../lib/tripPricing'
+import { TripStopCard } from './TripStopCard'
 import { formatTariffPrice } from '../lib/tariffDisplay'
 import { sumRouteAvailablePdc, sumRoutePdc } from '../lib/tripRouteDensity'
 import type { Station } from '../types/irve'
@@ -182,6 +185,11 @@ export function TripsPage() {
   const [selected, setSelected] = useState<Station | null>(null)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [panelOpen, setPanelOpen] = useState(false)
+  const [chartHoverKm, setChartHoverKm] = useState<number | null>(null)
+
+  useEffect(() => {
+    setChartHoverKm(null)
+  }, [activeTrip?.id])
 
   const activeAnalysis = useMemo(() => {
     if (!activeTrip || stations.length === 0) return null
@@ -204,8 +212,15 @@ export function TripsPage() {
     const pdcCount = sumRoutePdc(onRoute)
     const availablePdcCount = sumRouteAvailablePdc(onRoute)
     const priceSummary = computeTripPriceSummary(onRoute.map((item) => item.station))
+    const chargeStops = computeTripChargeStops(
+      activeTrip.routeDistanceKm,
+      onRoute,
+      activeTrip.vehicleRangeKm,
+    )
+    const stopCount = tripChargeStopCount(activeTrip.routeDistanceKm, activeTrip.vehicleRangeKm)
+    const coveredStopCount = chargeStops.filter((stop) => stop.covered).length
 
-    return { onRoute, coverage, pdcCount, availablePdcCount, priceSummary }
+    return { onRoute, coverage, pdcCount, availablePdcCount, priceSummary, chargeStops, stopCount, coveredStopCount }
   }, [activeTrip, stations, stationLookup])
 
   const routeStations = useMemo(
@@ -397,7 +412,7 @@ export function TripsPage() {
 
             {activeTrip && activeAnalysis && (
               <section className="trips-detail" aria-live="polite">
-                <h3>Détail du trajet</h3>
+                <h3>Détail</h3>
                 <div className="trips-detail__score">
                   <span className={coverageClass(activeAnalysis.coverage.grade)}>
                     {activeAnalysis.coverage.score}%
@@ -405,23 +420,33 @@ export function TripsPage() {
                   <div>
                     <strong>{COVERAGE_GRADE_LABELS[activeAnalysis.coverage.grade]}</strong>
                     <p>
-                      {activeAnalysis.coverage.coveredSegmentCount}/
-                      {activeAnalysis.coverage.segmentCount} tronçons couverts (autonomie{' '}
-                      {activeTrip.vehicleRangeKm} km)
+                      {activeAnalysis.stopCount === 0 ? (
+                        <>
+                          Trajet direct — recharge lente à l&apos;arrivée (autonomie{' '}
+                          {activeTrip.vehicleRangeKm} km)
+                        </>
+                      ) : (
+                        <>
+                          {activeAnalysis.coveredStopCount}/{activeAnalysis.stopCount} arrêt
+                          {activeAnalysis.stopCount > 1 ? 's' : ''} couvert
+                          {activeAnalysis.coveredStopCount > 1 ? 's' : ''} · autonomie{' '}
+                          {activeTrip.vehicleRangeKm} km
+                        </>
+                      )}
                     </p>
                   </div>
                 </div>
                 <dl className="trips-detail__stats">
                   <div>
-                    <dt>Distance route</dt>
+                    <dt>Distance</dt>
                     <dd>{formatDistanceKm(activeTrip.routeDistanceKm)}</dd>
                   </div>
                   <div>
-                    <dt>Stations sur trajet</dt>
+                    <dt>Stations</dt>
                     <dd>{activeAnalysis.coverage.stationCount}</dd>
                   </div>
                   <div>
-                    <dt>Points de charge</dt>
+                    <dt>PDC</dt>
                     <dd>
                       {activeAnalysis.pdcCount.toLocaleString('fr-FR')}
                       {activeAnalysis.availablePdcCount > 0 && (
@@ -433,54 +458,26 @@ export function TripsPage() {
                     </dd>
                   </div>
                   <div>
-                    <dt>Plus grand intervalle</dt>
+                    <dt>Intervalle max</dt>
                     <dd>{formatDistanceKm(activeAnalysis.coverage.maxGapKm)}</dd>
                   </div>
                   <div>
-                    <dt>Durée route</dt>
-                    <dd>{activeTrip.routeDurationMinutes} min</dd>
+                    <dt>Durée</dt>
+                    <dd>{formatRouteDuration(activeTrip.routeDurationMinutes)}</dd>
                   </div>
-                  <div className="trips-detail__stat--wide">
-                    <dt>Prix moyen (CB direct)</dt>
+                  <div>
+                    <dt>Prix moyen</dt>
                     <dd>
-                      {activeAnalysis.priceSummary.avgPricePerKwh != null ? (
-                        <>
-                          ≈{' '}
-                          {formatTariffPrice(activeAnalysis.priceSummary.avgPricePerKwh, '€/kWh')}
-                          {activeAnalysis.priceSummary.minPricePerKwh != null &&
-                            activeAnalysis.priceSummary.maxPricePerKwh != null &&
-                            activeAnalysis.priceSummary.minPricePerKwh !==
-                              activeAnalysis.priceSummary.maxPricePerKwh && (
-                              <span className="trips-detail__price-range">
-                                {' '}
-                                ·{' '}
-                                {formatTariffPrice(
-                                  activeAnalysis.priceSummary.minPricePerKwh,
-                                  '€/kWh',
-                                )}
-                                {' – '}
-                                {formatTariffPrice(
-                                  activeAnalysis.priceSummary.maxPricePerKwh,
-                                  '€/kWh',
-                                )}
-                              </span>
-                            )}
-                        </>
-                      ) : (
-                        '—'
-                      )}
+                      {activeAnalysis.priceSummary.avgPricePerKwh != null
+                        ? formatTariffPrice(
+                            activeAnalysis.priceSummary.avgPricePerKwh,
+                            '€/kWh',
+                          )
+                        : '—'}
                     </dd>
-                    {activeAnalysis.priceSummary.avgPricePerKwh != null && (
-                      <p className="trips-detail__price-note">
-                        {activeAnalysis.priceSummary.coveragePct}% des PDC tarifés (
-                        {activeAnalysis.priceSummary.pricedPdcCount.toLocaleString('fr-FR')}/
-                        {activeAnalysis.priceSummary.totalPdcCount.toLocaleString('fr-FR')}) ·
-                        grilles opérateurs, accès direct
-                      </p>
-                    )}
                   </div>
                 </dl>
-                <TripStopsList items={activeAnalysis.onRoute} />
+                <TripStopZonesList stops={activeAnalysis.chargeStops} />
               </section>
             )}
           </div>
@@ -545,6 +542,7 @@ export function TripsPage() {
                 onSelect={setSelected}
                 theme={theme}
                 routeOverlay={routeOverlay}
+                routeHighlightKm={chartHoverKm}
                 disableCluster
               />
             )}
@@ -563,16 +561,17 @@ export function TripsPage() {
               routeLengthKm={activeTrip.routeDistanceKm}
               vehicleRangeKm={activeTrip.vehicleRangeKm}
               stations={activeAnalysis.onRoute}
+              onHoverKmChange={setChartHoverKm}
             />
           )}
 
           {!activeTrip && !loading && (
             <section className="trips-preview" aria-label="Aperçu des résultats">
-              <h3 className="trips-preview__title">Après ajout d'un trajet</h3>
+              <h3 className="trips-preview__title">Aperçu</h3>
               <ul className="trips-preview__list">
-                <li>Route et stations dans un corridor de 15 km</li>
-                <li>Score de couverture par tronçon d'autonomie</li>
-                <li>Couverture stations et prix min le long du trajet</li>
+                <li>Route et stations (corridor 15 km)</li>
+                <li>Arrêts recharge rapide estimés</li>
+                <li>Couverture et prix le long du trajet</li>
               </ul>
               <button
                 type="button"
@@ -591,27 +590,39 @@ export function TripsPage() {
   )
 }
 
-function TripStopsList({ items }: { items: StationOnRoute[] }) {
-  if (items.length === 0) {
-    return <p className="trips-stops__empty">Aucune station ne correspond aux critères sur ce trajet.</p>
+function TripStopZonesList({ stops }: { stops: TripChargeStop[] }) {
+  if (stops.length === 0) {
+    return null
   }
 
   return (
-    <ol className="trips-stops">
-      {items.map((item) => (
-        <li key={item.station.station_key}>
-          <span className="trips-stops__km">
-            {Math.round(item.distanceAlongRouteKm).toLocaleString('fr-FR')} km
-          </span>
-          <div>
-            <strong>{item.station.nom_station}</strong>
-            <span>
-              {item.station.nom_operateur} · {item.station.summary.max_power} kW ·{' '}
-              {item.station.dynamic_summary.available_count}/{item.station.pdc_count} dispo
-            </span>
-          </div>
-        </li>
-      ))}
-    </ol>
+    <div className="trips-stop-zones">
+      <div className="trips-stop-zones__cards">
+        {stops.map((stop) => (
+          <TripStopCard key={stop.index} stop={stop} />
+        ))}
+      </div>
+      {stops.map((stop) => {
+        const zoneStations = [...(stop.likelyStop?.stations ?? [])].sort((a, b) => {
+          const pdcDiff = b.station.pdc_count - a.station.pdc_count
+          if (pdcDiff !== 0) return pdcDiff
+          return a.distanceAlongRouteKm - b.distanceAlongRouteKm
+        })
+
+        if (zoneStations.length === 0) return null
+
+        return (
+          <ol key={`stations-${stop.index}`} className="trips-stops" aria-label={`Stations arrêt ${stop.index}`}>
+            {zoneStations.map((item) => (
+              <li key={item.station.station_key}>
+                {Math.round(item.distanceAlongRouteKm).toLocaleString('fr-FR')} km ·{' '}
+                <strong>{item.station.nom_station}</strong> · {item.station.summary.max_power} kW ·{' '}
+                {item.station.dynamic_summary.available_count}/{item.station.pdc_count} dispo
+              </li>
+            ))}
+          </ol>
+        )
+      })}
+    </div>
   )
 }

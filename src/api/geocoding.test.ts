@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { cityNameFromBanFeature } from '../api/geocoding'
+import { cityNameFromBanFeature, isBanArrondissement } from '../api/geocoding'
 import { formatTripCityLabel } from '../lib/buildTrip'
+
+describe('isBanArrondissement', () => {
+  it('repère les arrondissements Paris/Lyon/Marseille', () => {
+    expect(isBanArrondissement('Paris 11e Arrondissement')).toBe(true)
+    expect(isBanArrondissement('Lyon 3e Arrondissement')).toBe(true)
+    expect(isBanArrondissement('Marseille 13e Arrondissement')).toBe(true)
+  })
+
+  it('conserve les communes simples', () => {
+    expect(isBanArrondissement('Paris')).toBe(false)
+    expect(isBanArrondissement('Lyon')).toBe(false)
+    expect(isBanArrondissement('Nantes')).toBe(false)
+  })
+})
 
 describe('cityNameFromBanFeature', () => {
   it('utilise le champ city', () => {

@@ -9,6 +9,7 @@ import { clusterProperties, mixedClusterColor, mixedClusterOpacity, mixedPointCo
 import { formatMaxPowerKw } from '../lib/formatPower'
 import { getPowerBadgeClass } from '../lib/power'
 import { getAvailabilityTone } from '../lib/stationDisplay'
+import { interpolateRoutePointAtKm } from '../lib/tripGeo'
 
 const FRANCE_CENTER: [number, number] = [2.5, 46.6]
 const FRANCE_ZOOM = 5.2
@@ -27,6 +28,8 @@ interface IrveMapProps {
   onSelect: (station: Station | null) => void
   theme: Theme
   routeOverlay?: RouteOverlay | null
+  /** Position le long de la route (km) — marqueur chart ↔ carte. */
+  routeHighlightKm?: number | null
   disableCluster?: boolean
 }
 
@@ -140,6 +143,79 @@ function syncRouteOverlay(map: Map, overlay: RouteOverlay | null | undefined) {
   }
 
   addRouteLayers(map, overlay)
+}
+
+function syncRouteHighlight(
+  map: Map,
+  overlay: RouteOverlay | null | undefined,
+  km: number | null | undefined,
+) {
+  const empty = {
+    type: 'FeatureCollection' as const,
+    features: [],
+  }
+
+  const source = map.getSource('route-highlight') as GeoJSONSource | undefined
+
+  if (!overlay || km == null) {
+    source?.setData(empty)
+    return
+  }
+
+  const point = interpolateRoutePointAtKm(overlay.coordinates, km)
+  if (!point) {
+    source?.setData(empty)
+    return
+  }
+
+  const data = {
+    type: 'FeatureCollection' as const,
+    features: [
+      {
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Point' as const,
+          coordinates: point,
+        },
+        properties: { km },
+      },
+    ],
+  }
+
+  if (source) {
+    source.setData(data)
+    return
+  }
+
+  map.addSource('route-highlight', {
+    type: 'geojson',
+    data,
+  })
+
+  map.addLayer({
+    id: 'route-highlight-glow',
+    type: 'circle',
+    source: 'route-highlight',
+    paint: {
+      'circle-color': '#f59e0b',
+      'circle-radius': 14,
+      'circle-opacity': 0.28,
+      'circle-blur': 0.35,
+    },
+  })
+
+  map.addLayer({
+    id: 'route-highlight-point',
+    type: 'circle',
+    source: 'route-highlight',
+    paint: {
+      'circle-color': '#f59e0b',
+      'circle-radius': 7,
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 2,
+      'circle-opacity': 0.95,
+    },
+  })
 }
 
 function fitRouteBounds(map: Map, overlay: RouteOverlay) {
@@ -277,6 +353,7 @@ function setupMapStyle(
   stations: Station[],
   disableCluster: boolean,
   routeOverlay?: RouteOverlay | null,
+  routeHighlightKm?: number | null,
 ) {
   applyFrenchLabels(map)
 
@@ -284,11 +361,13 @@ function setupMapStyle(
   if (source) {
     source.setData(stationsToGeoJSON(stations))
     syncRouteOverlay(map, routeOverlay)
+    syncRouteHighlight(map, routeOverlay, routeHighlightKm)
     return
   }
 
   addStationLayers(map, stations, disableCluster)
   syncRouteOverlay(map, routeOverlay)
+  syncRouteHighlight(map, routeOverlay, routeHighlightKm)
 }
 
 type StyleLoadListener = () => void
@@ -321,6 +400,7 @@ export function IrveMap({
   onSelect,
   theme,
   routeOverlay = null,
+  routeHighlightKm = null,
   disableCluster = false,
 }: IrveMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -329,6 +409,7 @@ export function IrveMap({
   const stationsRef = useRef(stations)
   const selectedKeyRef = useRef(selectedKey)
   const routeOverlayRef = useRef(routeOverlay)
+  const routeHighlightKmRef = useRef(routeHighlightKm)
   const disableClusterRef = useRef(disableCluster)
   const popupRef = useRef<maplibregl.Popup | null>(null)
   const hoveredKeyRef = useRef<string | null>(null)
@@ -336,6 +417,7 @@ export function IrveMap({
   stationsRef.current = stations
   selectedKeyRef.current = selectedKey
   routeOverlayRef.current = routeOverlay
+  routeHighlightKmRef.current = routeHighlightKm
   disableClusterRef.current = disableCluster
 
   const findStation = useCallback((key: string) => {
@@ -422,6 +504,7 @@ export function IrveMap({
         stationsRef.current,
         disableClusterRef.current,
         routeOverlayRef.current,
+        routeHighlightKmRef.current,
       )
     }
     const detachStyleLoad = onStyleLoad(map, syncStationLayers)
@@ -531,7 +614,7 @@ export function IrveMap({
     if (!map) return
 
     const apply = () => {
-      setupMapStyle(map, stations, disableCluster, routeOverlay)
+      setupMapStyle(map, stations, disableCluster, routeOverlay, routeHighlightKm)
     }
 
     const source = map.getSource('stations') as GeoJSONSource | undefined
@@ -541,7 +624,7 @@ export function IrveMap({
     }
 
     return onceStyleLoad(map, apply)
-  }, [stations, disableCluster, routeOverlay])
+  }, [stations, disableCluster, routeOverlay, routeHighlightKm])
 
   useEffect(() => {
     const map = mapRef.current

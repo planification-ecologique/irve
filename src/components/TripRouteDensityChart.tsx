@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useState } from 'react'
 import { formatTripCityLabel } from '../lib/buildTrip'
 import { computeTripSegmentMinPrices, formatCompactPricePerKwh } from '../lib/tripPricing'
-import type { StationOnRoute } from '../lib/tripCoverage'
+import { TripStopCard } from './TripStopCard'
+import { computeTripChargeStops, tripChargeStopCount, type StationOnRoute } from '../lib/tripCoverage'
 import {
   buildSvgLinePath,
   buildSvgLinePathsWithGaps,
@@ -29,6 +30,7 @@ interface TripRouteDensityChartProps {
   routeLengthKm: number
   vehicleRangeKm: number
   stations: StationOnRoute[]
+  onHoverKmChange?: (km: number | null) => void
 }
 
 const CHART_WIDTH = 960
@@ -38,6 +40,7 @@ const PAD_RIGHT = 40
 const PAD_TOP = 16
 const PAD_BOTTOM = 30
 const PLOT_HEIGHT = CHART_HEIGHT - PAD_TOP - PAD_BOTTOM
+const STOP_LABEL_Y = PAD_TOP + PLOT_HEIGHT - 5
 
 export function TripRouteDensityChart({
   fromLabel,
@@ -45,6 +48,7 @@ export function TripRouteDensityChart({
   routeLengthKm,
   vehicleRangeKm,
   stations,
+  onHoverKmChange,
 }: TripRouteDensityChartProps) {
   const [hovered, setHovered] = useState<RouteDensitySample | null>(null)
   const plotWidth = CHART_WIDTH - PAD_LEFT - PAD_RIGHT
@@ -133,12 +137,29 @@ export function TripRouteDensityChart({
     }, [samples, xForKm, yForStations, yForPdc])
 
   const rangeBands = useMemo(() => {
-    const bands: { startKm: number; endKm: number }[] = []
-    for (let start = 0; start < safeLength; start += vehicleRangeKm) {
-      bands.push({ startKm: start, endKm: Math.min(start + vehicleRangeKm, safeLength) })
+    const bands: { startKm: number; endKm: number; index: number }[] = []
+    for (let start = 0, index = 1; start < safeLength; start += vehicleRangeKm, index += 1) {
+      bands.push({
+        startKm: start,
+        endKm: Math.min(start + vehicleRangeKm, safeLength),
+        index,
+      })
     }
     return bands
   }, [safeLength, vehicleRangeKm])
+
+  const chargeStops = useMemo(
+    () => computeTripChargeStops(routeLengthKm, stations, vehicleRangeKm),
+    [routeLengthKm, stations, vehicleRangeKm],
+  )
+  const stopCount = useMemo(
+    () => tripChargeStopCount(routeLengthKm, vehicleRangeKm),
+    [routeLengthKm, vehicleRangeKm],
+  )
+  const coveredStopCount = useMemo(
+    () => chargeStops.filter((stop) => stop.covered).length,
+    [chargeStops],
+  )
 
   const segmentPrices = useMemo(
     () => computeTripSegmentMinPrices(routeLengthKm, stations, vehicleRangeKm),
@@ -152,19 +173,29 @@ export function TripRouteDensityChart({
       Math.abs(sample.km - km) < Math.abs(best.km - km) ? sample : best,
     )
     setHovered(nearest)
+    onHoverKmChange?.(nearest.km)
   }
 
   const clearSample = () => {
     setHovered(null)
+    onHoverKmChange?.(null)
   }
 
   return (
     <section className="trips-density" aria-label="Couverture des stations le long du trajet">
       <div className="trips-density__header">
         <div>
-          <h3>Couverture le long du trajet</h3>
+          <h3>Couverture</h3>
           <p className="trips-density__subtitle">
-            Fenêtre glissante {windowKm} km · corridor 15 km
+            {stopCount === 0 ? (
+              <>Trajet direct · recharge lente à l&apos;arrivée</>
+            ) : (
+              <>
+                {stopCount} arrêt{stopCount > 1 ? 's estimés' : ' estimé'} · tronçons{' '}
+                {vehicleRangeKm} km
+              </>
+            )}
+            {' · '}fenêtre {windowKm} km
             {hasCappedStationValues && (
               <> · courbe stations plafonnée à {MAX_DENSITY_BIN_SCALE}</>
             )}
@@ -176,6 +207,12 @@ export function TripRouteDensityChart({
           </span>
           <span className="trips-density__legend-item trips-density__legend-item--pdc">
             PDC
+          </span>
+          <span className="trips-density__legend-item trips-density__legend-item--segment">
+            {vehicleRangeKm} km
+          </span>
+          <span className="trips-density__legend-item trips-density__legend-item--stop">
+            Arrêt
           </span>
           <span className="trips-density__legend-item trips-density__legend-item--gap">
             Intervalle ≥ {gapWarningKm} km
@@ -191,6 +228,14 @@ export function TripRouteDensityChart({
       <p className="trips-density__counts">
         {stations.length.toLocaleString('fr-FR')} stations ·{' '}
         {totalPdc.toLocaleString('fr-FR')} PDC
+        {stopCount > 0 && (
+          <>
+            {' '}
+            · {coveredStopCount}/{stopCount} arrêt
+            {stopCount > 1 ? 's' : ''} couvert
+            {coveredStopCount > 1 ? 's' : ''}
+          </>
+        )}
         {totalAvailablePdc > 0 && (
           <> · {totalAvailablePdc.toLocaleString('fr-FR')} PDC dispo</>
         )}
@@ -212,7 +257,57 @@ export function TripRouteDensityChart({
               y={PAD_TOP}
               width={Math.max(1, xForKm(band.endKm) - xForKm(band.startKm))}
               height={PLOT_HEIGHT}
-              className="trips-density__range-band"
+              className={
+                band.index % 2 === 0
+                  ? 'trips-density__range-band trips-density__range-band--alt'
+                  : 'trips-density__range-band'
+              }
+            />
+          ))}
+
+          {chargeStops.map((stop) => {
+            if (!stop.likelyStop) return null
+            const { zoneStartKm, zoneEndKm, centerKm } = stop.likelyStop
+            const label = `Arrêt ${stop.index}`
+            const bandWidth = xForKm(zoneEndKm) - xForKm(zoneStartKm)
+            if (bandWidth < 12) return null
+
+            return (
+              <g
+                key={`stop-${stop.index}-${zoneStartKm}`}
+                className="trips-density__stop-zone"
+              >
+                <rect
+                  x={xForKm(zoneStartKm)}
+                  y={PAD_TOP}
+                  width={Math.max(1, bandWidth)}
+                  height={PLOT_HEIGHT}
+                  className="trips-density__stop-zone-fill"
+                />
+                <line
+                  x1={xForKm(centerKm)}
+                  y1={PAD_TOP}
+                  x2={xForKm(centerKm)}
+                  y2={PAD_TOP + PLOT_HEIGHT}
+                  className="trips-density__stop-zone-marker"
+                />
+                <title>
+                  {label} · ~{Math.round(centerKm)} km · {stop.likelyStop.stationCount}{' '}
+                  station
+                  {stop.likelyStop.stationCount > 1 ? 's' : ''} · {stop.likelyStop.pdcCount} PDC
+                </title>
+              </g>
+            )
+          })}
+
+          {rangeBands.slice(1).map((band) => (
+            <line
+              key={`split-${band.startKm}`}
+              x1={xForKm(band.startKm)}
+              y1={PAD_TOP}
+              x2={xForKm(band.startKm)}
+              y2={PAD_TOP + PLOT_HEIGHT}
+              className="trips-density__segment-divider"
             />
           ))}
 
@@ -320,6 +415,26 @@ export function TripRouteDensityChart({
               )
             })}
 
+          {chargeStops.map((stop) => {
+            if (!stop.likelyStop) return null
+            const { zoneStartKm, zoneEndKm, centerKm } = stop.likelyStop
+            const bandWidth = xForKm(zoneEndKm) - xForKm(zoneStartKm)
+            if (bandWidth < 36) return null
+
+            return (
+              <text
+                key={`stop-label-${stop.index}`}
+                x={xForKm(centerKm)}
+                y={STOP_LABEL_Y}
+                textAnchor="middle"
+                dominantBaseline="auto"
+                className="trips-density__stop-zone-label"
+              >
+                Arrêt {stop.index}
+              </text>
+            )
+          })}
+
           {samples.map((sample) => (
             <rect
               key={sample.km}
@@ -385,6 +500,20 @@ export function TripRouteDensityChart({
           {formatTripCityLabel(toLabel)}
         </span>
       </div>
+
+      {stopCount === 0 ? (
+        <p className="trips-segments__direct">
+          Aucun arrêt recharge rapide nécessaire — recharge lente à destination.
+        </p>
+      ) : (
+        <ol className="trips-segments" aria-label="Arrêts recharge rapide estimés">
+          {chargeStops.map((stop) => (
+            <li key={stop.index} className="trips-segments__cell">
+              <TripStopCard stop={stop} />
+            </li>
+          ))}
+        </ol>
+      )}
     </section>
   )
 }

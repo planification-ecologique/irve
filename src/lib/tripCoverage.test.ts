@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { Station } from '../types/irve'
 import {
   computeCoverageScore,
+  computeTripChargeStops,
+  tripChargeStopCount,
   coverageGradeFromScore,
   findStationsOnRoute,
   resolveStationsOnRoute,
 } from './tripCoverage'
-import { haversineKm, polylineLengthKm, projectPointOnPolyline } from './tripGeo'
+import { haversineKm, interpolateRoutePointAtKm, polylineLengthKm, projectPointOnPolyline } from './tripGeo'
 
 function makeStation(
   key: string,
@@ -76,6 +78,25 @@ describe('tripGeo', () => {
     expect(projection.distanceFromRouteKm).toBeLessThan(5)
     expect(projection.distanceAlongRouteKm).toBeGreaterThanOrEqual(0)
   })
+
+  it('interpole un point le long du tracé à km donné', () => {
+    const route: [number, number][] = [
+      [2.35, 48.85],
+      [4.84, 45.76],
+    ]
+    const total = polylineLengthKm(route)
+    const start = interpolateRoutePointAtKm(route, 0)
+    const mid = interpolateRoutePointAtKm(route, total / 2)
+    const end = interpolateRoutePointAtKm(route, total)
+
+    expect(start).toEqual(route[0])
+    expect(end).toEqual(route[route.length - 1])
+    expect(mid).not.toBeNull()
+    expect(haversineKm(
+      { lat: start![1], lng: start![0] },
+      { lat: mid![1], lng: mid![0] },
+    )).toBeGreaterThan(total * 0.4)
+  })
 })
 
 describe('tripCoverage', () => {
@@ -135,5 +156,36 @@ describe('tripCoverage', () => {
     expect(fromKeys).toEqual(fullScan)
     expect(fromKeys).toHaveLength(1)
     expect(fromKeys[0]?.station.station_key).toBe('near')
+  })
+
+  it('repère les arrêts recharge rapide (hors arrivée)', () => {
+    const stationsOnRoute = [
+      {
+        station: makeStation('early', 48.86, 2.36, 150),
+        distanceAlongRouteKm: 320,
+        distanceFromRouteKm: 1,
+      },
+      {
+        station: makeStation('hub', 47.5, 3.5, 150),
+        distanceAlongRouteKm: 360,
+        distanceFromRouteKm: 1,
+      },
+      {
+        station: makeStation('late', 45.77, 4.83),
+        distanceAlongRouteKm: 560,
+        distanceFromRouteKm: 1,
+      },
+    ]
+
+    expect(tripChargeStopCount(580, 400)).toBe(1)
+    expect(tripChargeStopCount(800, 400)).toBe(2)
+    expect(tripChargeStopCount(350, 400)).toBe(0)
+
+    const stops = computeTripChargeStops(580, stationsOnRoute, 400)
+
+    expect(stops).toHaveLength(1)
+    expect(stops[0]?.covered).toBe(true)
+    expect(stops[0]?.likelyStop?.centerKm).toBeGreaterThan(300)
+    expect(stops[0]?.likelyStop?.centerKm).toBeLessThan(400)
   })
 })
