@@ -6,7 +6,7 @@ interface AppNavProps {
 
 const LINKS: { page: AppPage; href: string; label: string }[] = [
   { page: 'map', href: MAP_PATH, label: 'Carte' },
-  { page: 'trips', href: TRIPS_PATH, label: 'Mes trajets' },
+  { page: 'trips', href: TRIPS_PATH, label: 'Trajets' },
   { page: 'analytics', href: ANALYTICS_PATH, label: 'Analyse' },
   { page: 'tariffs', href: TARIFFS_PATH, label: 'Tarifs' },
 ]

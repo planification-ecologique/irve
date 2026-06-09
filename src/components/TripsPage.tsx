@@ -26,6 +26,7 @@ import { TripRouteDensityChart } from './TripRouteDensityChart'
 import { StatsBar } from './StatsBar'
 import { StationDetail } from './StationDetail'
 import { FeedbackForm } from './FeedbackForm'
+import { FeedbackFab } from './FeedbackFab'
 import '../App.css'
 import '../Trips.css'
 
@@ -297,7 +298,7 @@ export function TripsPage() {
 
           <div className="trips-panel">
             <header className="trips-panel__header">
-              <h2>Mes trajets</h2>
+              <h2>Trajets</h2>
               <p>Testez vos trajets habituels et la couverture IRVE le long de la route.</p>
             </header>
 
@@ -509,7 +510,7 @@ export function TripsPage() {
             aria-expanded={panelOpen}
             onClick={() => setPanelOpen((open) => !open)}
           >
-            Mes trajets
+            Trajets
             {trips.length > 0 && (
               <span className="trips-toggle__badge">{trips.length}</span>
             )}
@@ -552,14 +553,7 @@ export function TripsPage() {
               <StationDetail station={selected} onClose={() => setSelected(null)} />
             )}
 
-            <button
-              type="button"
-              className="feedback-fab"
-              onClick={() => setFeedbackOpen(true)}
-              title="Signaler un problème"
-            >
-              Signaler un problème
-            </button>
+            <FeedbackFab onClick={() => setFeedbackOpen(true)} />
           </div>
 
           {activeTrip && activeAnalysis && (

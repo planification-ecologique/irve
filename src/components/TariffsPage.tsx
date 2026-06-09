@@ -36,6 +36,7 @@ import { StatsBar } from './StatsBar'
 import { TariffQualityPieChart } from './TariffQualityPieChart'
 import { TariffBoxPlotChart } from './TariffRangeChart'
 import { FeedbackForm } from './FeedbackForm'
+import { FeedbackFab } from './FeedbackFab'
 import '../App.css'
 import '../Tariffs.css'
 
@@ -549,14 +550,7 @@ export function TariffsPage({ theme, onToggleTheme, stations, loading = false }:
         )}
       </div>
 
-      <button
-        type="button"
-        className="feedback-fab"
-        onClick={() => setFeedbackOpen(true)}
-        title="Signaler un problème"
-      >
-        Signaler un problème
-      </button>
+      <FeedbackFab onClick={() => setFeedbackOpen(true)} />
 
       {feedbackOpen && <FeedbackForm onClose={() => setFeedbackOpen(false)} />}
     </div>

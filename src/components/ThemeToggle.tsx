@@ -3,15 +3,16 @@ import type { Theme } from '../lib/theme'
 interface ThemeToggleProps {
   theme: Theme
   onToggle: () => void
+  className?: string
 }
 
-export function ThemeToggle({ theme, onToggle }: ThemeToggleProps) {
+export function ThemeToggle({ theme, onToggle, className }: ThemeToggleProps) {
   const isDark = theme === 'dark'
 
   return (
     <button
       type="button"
-      className="theme-toggle"
+      className={className ? `theme-toggle ${className}` : 'theme-toggle'}
       onClick={onToggle}
       aria-label={isDark ? 'Activer le mode clair' : 'Activer le mode sombre'}
       title={isDark ? 'Mode clair' : 'Mode sombre'}

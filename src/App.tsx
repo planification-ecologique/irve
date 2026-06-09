@@ -16,6 +16,7 @@ import { getAppPage, isAnalyticsPath, isTariffsPath, isTripsPath } from './lib/r
 import { FiltersPanel } from './components/FiltersPanel'
 import { StationDetail } from './components/StationDetail'
 import { FeedbackForm } from './components/FeedbackForm'
+import { FeedbackFab } from './components/FeedbackFab'
 import { isSlowOnlyPowerFilter } from './lib/power'
 import { mergeStationLists } from './lib/stationOrigin'
 import type { Station } from './types/irve'
@@ -240,14 +241,7 @@ function App() {
             <StationDetail station={selected} onClose={() => handleSelect(null)} />
           )}
 
-          <button
-            type="button"
-            className="feedback-fab"
-            onClick={() => setFeedbackOpen(true)}
-            title="Signaler un problème"
-          >
-            Signaler un problème
-          </button>
+          <FeedbackFab onClick={() => setFeedbackOpen(true)} />
         </div>
       </main>
 

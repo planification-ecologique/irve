@@ -352,11 +352,15 @@ export function TripRouteDensityChart({
             <span className="trips-density__tooltip-hint">fenêtre {windowKm} km</span>
           </div>
         )}
+      </div>
 
-        <div className="trips-density__labels">
-          <span>{formatTripCityLabel(fromLabel)}</span>
-          <span>{formatTripCityLabel(toLabel)}</span>
-        </div>
+      <div className="trips-density__labels">
+        <span className="trips-density__label trips-density__label--from">
+          {formatTripCityLabel(fromLabel)}
+        </span>
+        <span className="trips-density__label trips-density__label--to">
+          {formatTripCityLabel(toLabel)}
+        </span>
       </div>
     </section>
   )
