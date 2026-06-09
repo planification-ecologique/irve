@@ -1,6 +1,7 @@
 import type { Station } from '../types/irve'
 import type { CoverageGrade } from '../types/trip'
 import { computeStopZonePriceEstimate } from './tripPricing'
+import { stationsOnRouteInKmRange } from './tripSegments'
 import { projectPointOnPolyline, toRad } from './tripGeo'
 
 export interface StationOnRoute {
@@ -141,6 +142,9 @@ function projectStationsOnRoute(
   return onRoute.sort((a, b) => a.distanceAlongRouteKm - b.distanceAlongRouteKm)
 }
 
+/** Cible de recharge par leg (~88 % autonomie), alignée sur findChargeStopZone. */
+export const CHARGE_LEG_FACTOR = 0.88
+
 export function findStationsOnRoute(
   stations: Station[],
   routeCoordinates: [number, number][],
@@ -252,17 +256,6 @@ function computeMaxGapKm(
   return Math.round(maxGap)
 }
 
-function stationsInKmRange(
-  stations: StationOnRoute[],
-  startKm: number,
-  endKm: number,
-): StationOnRoute[] {
-  return stations.filter(
-    (item) =>
-      item.distanceAlongRouteKm >= startKm && item.distanceAlongRouteKm <= endKm,
-  )
-}
-
 function pdcWeightedCenterKm(stations: StationOnRoute[]): number {
   if (stations.length === 0) return 0
   const totalPdc = stations.reduce((sum, item) => sum + item.station.pdc_count, 0)
@@ -309,11 +302,11 @@ function findChargeStopZone(
 ): TripLikelyStopZone | null {
   if (inSegment.length === 0) return null
 
-  const targetKm = Math.min(segmentEndKm - 5, segmentStartKm + vehicleRangeKm * 0.88)
+  const targetKm = Math.min(segmentEndKm - 5, segmentStartKm + vehicleRangeKm * CHARGE_LEG_FACTOR)
   const windowKm = Math.min(50, vehicleRangeKm * 0.15)
   let zoneStartKm = Math.max(segmentStartKm, targetKm - windowKm)
   let zoneEndKm = Math.min(segmentEndKm, targetKm + windowKm)
-  let inZone = stationsInKmRange(inSegment, zoneStartKm, zoneEndKm)
+  let inZone = stationsOnRouteInKmRange(inSegment, zoneStartKm, zoneEndKm)
 
   if (inZone.length === 0) {
     const anchor = inSegment.reduce((best, item) =>
@@ -321,14 +314,11 @@ function findChargeStopZone(
     )
     zoneStartKm = Math.max(segmentStartKm, anchor.distanceAlongRouteKm - 25)
     zoneEndKm = Math.min(segmentEndKm, anchor.distanceAlongRouteKm + 25)
-    inZone = stationsInKmRange(inSegment, zoneStartKm, zoneEndKm)
+    inZone = stationsOnRouteInKmRange(inSegment, zoneStartKm, zoneEndKm)
   }
 
   return buildLikelyStopZone(zoneStartKm, zoneEndKm, inZone)
 }
-
-/** Cible de recharge par leg (~88 % autonomie), alignée sur findChargeStopZone. */
-const CHARGE_LEG_FACTOR = 0.88
 
 interface ChargeLeg {
   legStartKm: number
@@ -356,12 +346,6 @@ function computeChargeLegs(routeLengthKm: number, vehicleRangeKm: number): Charg
   return legs
 }
 
-export function tripSegmentCount(routeLengthKm: number, vehicleRangeKm: number): number {
-  const safeLength = Math.max(routeLengthKm, 1)
-  const safeRange = Math.max(vehicleRangeKm, 1)
-  return Math.max(1, Math.ceil(safeLength / safeRange))
-}
-
 /** Arrêts recharge rapide — simulation leg par leg (recharge à ~88 % autonomie). */
 export function tripChargeStopCount(routeLengthKm: number, vehicleRangeKm: number): number {
   return computeChargeLegs(routeLengthKm, vehicleRangeKm).length
@@ -377,7 +361,7 @@ export function computeTripChargeStops(
   const legs = computeChargeLegs(routeLengthKm, vehicleRangeKm)
 
   return legs.map((leg, index) => {
-    const inLeg = stationsInKmRange(stationsOnRoute, leg.legStartKm, leg.legEndKm)
+    const inLeg = stationsOnRouteInKmRange(stationsOnRoute, leg.legStartKm, leg.legEndKm)
     const likelyStop = findChargeStopZone(leg.legStartKm, leg.legEndKm, inLeg, safeRange)
     const zoneStations = likelyStop?.stations.map((item) => item.station) ?? []
     const price = computeStopZonePriceEstimate(zoneStations)

@@ -1,5 +1,7 @@
 import { getOperatorTariff, pickDirectTier } from '../data/operatorTariffs'
 import type { Station } from '../types/irve'
+import { stationsOnRouteInKmRange, tripRangeBands } from './tripSegments'
+import type { StationOnRoute } from './tripCoverage'
 import { tariffHasDisplayablePrice } from './tariffDisplay'
 
 export interface TripPriceSummary {
@@ -85,39 +87,34 @@ function weightedPercentile(samples: PriceSample[], p: number): number | null {
   return sorted[sorted.length - 1]?.value ?? null
 }
 
+/** Prix minimum CB direct pour une liste de stations. */
+function minDirectPricePerKwh(stations: Station[]): number | null {
+  const prices = stations
+    .map((station) => resolveStationDirectPriceMinPerKwh(station))
+    .filter((price): price is number => price != null)
+  return prices.length > 0 ? Math.min(...prices) : null
+}
+
 /** Prix minimum CB direct par tronçon d'autonomie le long du trajet. */
 export function computeTripSegmentMinPrices(
   routeLengthKm: number,
-  stationsOnRoute: { distanceAlongRouteKm: number; station: Station }[],
+  stationsOnRoute: StationOnRoute[],
   segmentLengthKm: number,
 ): TripSegmentPrice[] {
-  const safeLength = Math.max(routeLengthKm, 1)
-  const safeSegment = Math.max(segmentLengthKm, 1)
-  const segmentCount = Math.max(1, Math.ceil(safeLength / safeSegment))
-  const segments: TripSegmentPrice[] = []
-
-  for (let i = 0; i < segmentCount; i += 1) {
-    const startKm = i * safeSegment
-    const endKm = Math.min((i + 1) * safeSegment, safeLength)
-    const inSegment = stationsOnRoute.filter(
-      (item) =>
-        item.distanceAlongRouteKm >= startKm &&
-        item.distanceAlongRouteKm <= endKm,
+  return tripRangeBands(routeLengthKm, segmentLengthKm).map(({ startKm, endKm }) => {
+    const inSegment = stationsOnRouteInKmRange(stationsOnRoute, startKm, endKm)
+    const pricedStations = inSegment.filter(
+      (item) => resolveStationDirectPriceMinPerKwh(item.station) != null,
     )
-    const prices = inSegment
-      .map((item) => resolveStationDirectPriceMinPerKwh(item.station))
-      .filter((price): price is number => price != null)
 
-    segments.push({
+    return {
       startKm,
       endKm,
-      minPricePerKwh: prices.length > 0 ? Math.min(...prices) : null,
-      pricedStationCount: prices.length,
+      minPricePerKwh: minDirectPricePerKwh(inSegment.map((item) => item.station)),
+      pricedStationCount: pricedStations.length,
       stationCount: inSegment.length,
-    })
-  }
-
-  return segments
+    }
+  })
 }
 
 /** Estimation €/kWh CB direct pour les stations d'une zone d'arrêt. */
@@ -173,13 +170,6 @@ export function formatStopZonePriceDetailsCompact(
     parts.push(`moy. ${formatCompactPricePerKwh(avgPricePerKwh)}`)
   }
   return `${parts.join(' · ')} €/kWh`
-}
-
-export function formatStopZonePriceDetails(
-  minPricePerKwh: number | null,
-  avgPricePerKwh: number | null,
-): string | null {
-  return formatStopZonePriceDetailsCompact(minPricePerKwh, avgPricePerKwh)
 }
 
 export function computeTripPriceSummary(stations: Station[]): TripPriceSummary {

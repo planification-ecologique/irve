@@ -93,6 +93,29 @@ export function computeRouteDensityBins(
 }
 
 /** Densité glissante : stations et PDC dans une fenêtre centrée sur chaque point. */
+function buildRollingSample(
+  km: number,
+  stations: StationOnRoute[],
+  halfWindow: number,
+): RouteDensitySample {
+  const inWindow = stations.filter(
+    (item) =>
+      item.distanceAlongRouteKm >= km - halfWindow &&
+      item.distanceAlongRouteKm <= km + halfWindow,
+  )
+  const prices = inWindow
+    .map((item) => resolveStationDirectPriceMinPerKwh(item.station))
+    .filter((price): price is number => price != null)
+
+  return {
+    km,
+    stationCount: inWindow.length,
+    pdcCount: sumRoutePdc(inWindow),
+    availablePdcCount: sumRouteAvailablePdc(inWindow),
+    minPricePerKwh: prices.length > 0 ? Math.min(...prices) : null,
+  }
+}
+
 export function computeRollingRouteDensity(
   routeLengthKm: number,
   stations: StationOnRoute[],
@@ -104,43 +127,12 @@ export function computeRollingRouteDensity(
   const samples: RouteDensitySample[] = []
 
   for (let km = 0; km <= safeLength; km += sampleStepKm) {
-    const inWindow = stations.filter(
-      (item) =>
-        item.distanceAlongRouteKm >= km - halfWindow &&
-        item.distanceAlongRouteKm <= km + halfWindow,
-    )
-    const prices = inWindow
-      .map((item) => resolveStationDirectPriceMinPerKwh(item.station))
-      .filter((price): price is number => price != null)
-
-    samples.push({
-      km,
-      stationCount: inWindow.length,
-      pdcCount: sumRoutePdc(inWindow),
-      availablePdcCount: sumRouteAvailablePdc(inWindow),
-      minPricePerKwh: prices.length > 0 ? Math.min(...prices) : null,
-    })
+    samples.push(buildRollingSample(km, stations, halfWindow))
   }
 
   const lastKm = samples[samples.length - 1]?.km ?? 0
   if (lastKm < safeLength) {
-    const km = safeLength
-    const inWindow = stations.filter(
-      (item) =>
-        item.distanceAlongRouteKm >= km - halfWindow &&
-        item.distanceAlongRouteKm <= km + halfWindow,
-    )
-    const prices = inWindow
-      .map((item) => resolveStationDirectPriceMinPerKwh(item.station))
-      .filter((price): price is number => price != null)
-
-    samples.push({
-      km,
-      stationCount: inWindow.length,
-      pdcCount: sumRoutePdc(inWindow),
-      availablePdcCount: sumRouteAvailablePdc(inWindow),
-      minPricePerKwh: prices.length > 0 ? Math.min(...prices) : null,
-    })
+    samples.push(buildRollingSample(safeLength, stations, halfWindow))
   }
 
   return samples

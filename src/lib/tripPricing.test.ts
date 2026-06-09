@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Station } from '../types/irve'
-import { computeStopZonePriceEstimate, computeTripPriceSummary, computeTripSegmentMinPrices, formatStopZonePriceDetails, resolveStationDirectPricePerKwh } from './tripPricing'
+import { computeStopZonePriceEstimate, computeTripPriceSummary, computeTripSegmentMinPrices, formatStopZonePriceDetailsCompact, resolveStationDirectPricePerKwh } from './tripPricing'
 
 function station(
   operator: string,
@@ -93,7 +93,7 @@ describe('tripPricing', () => {
     expect(estimate.avgPricePerKwh).not.toBeNull()
     expect(estimate.minPricePerKwh).not.toBeNull()
     expect(estimate.pricedStationCount).toBe(2)
-    expect(formatStopZonePriceDetails(estimate.minPricePerKwh, estimate.avgPricePerKwh)).toMatch(
+    expect(formatStopZonePriceDetailsCompact(estimate.minPricePerKwh, estimate.avgPricePerKwh)).toMatch(
       /min .* · moy\..*€\/kWh$/,
     )
   })

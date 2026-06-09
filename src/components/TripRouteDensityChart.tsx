@@ -2,7 +2,8 @@ import { useCallback, useMemo, useState } from 'react'
 import { formatTripCityLabel } from '../lib/buildTrip'
 import { computeTripSegmentMinPrices, formatCompactPricePerKwh } from '../lib/tripPricing'
 import { TripStopCard } from './TripStopCard'
-import { computeTripChargeStops, tripChargeStopCount, type StationOnRoute } from '../lib/tripCoverage'
+import { tripRangeBands } from '../lib/tripSegments'
+import { type TripChargeStop, type StationOnRoute } from '../lib/tripCoverage'
 import {
   buildSvgLinePath,
   buildSvgLinePathsWithGaps,
@@ -30,6 +31,7 @@ interface TripRouteDensityChartProps {
   routeLengthKm: number
   vehicleRangeKm: number
   stations: StationOnRoute[]
+  chargeStops: TripChargeStop[]
   onHoverKmChange?: (km: number | null) => void
 }
 
@@ -48,6 +50,7 @@ export function TripRouteDensityChart({
   routeLengthKm,
   vehicleRangeKm,
   stations,
+  chargeStops,
   onHoverKmChange,
 }: TripRouteDensityChartProps) {
   const [hovered, setHovered] = useState<RouteDensitySample | null>(null)
@@ -136,26 +139,12 @@ export function TripRouteDensityChart({
       }
     }, [samples, xForKm, yForStations, yForPdc])
 
-  const rangeBands = useMemo(() => {
-    const bands: { startKm: number; endKm: number; index: number }[] = []
-    for (let start = 0, index = 1; start < safeLength; start += vehicleRangeKm, index += 1) {
-      bands.push({
-        startKm: start,
-        endKm: Math.min(start + vehicleRangeKm, safeLength),
-        index,
-      })
-    }
-    return bands
-  }, [safeLength, vehicleRangeKm])
-
-  const chargeStops = useMemo(
-    () => computeTripChargeStops(routeLengthKm, stations, vehicleRangeKm),
-    [routeLengthKm, stations, vehicleRangeKm],
-  )
-  const stopCount = useMemo(
-    () => tripChargeStopCount(routeLengthKm, vehicleRangeKm),
+  const rangeBands = useMemo(
+    () => tripRangeBands(routeLengthKm, vehicleRangeKm),
     [routeLengthKm, vehicleRangeKm],
   )
+
+  const stopCount = chargeStops.length
   const coveredStopCount = useMemo(
     () => chargeStops.filter((stop) => stop.covered).length,
     [chargeStops],

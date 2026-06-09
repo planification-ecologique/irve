@@ -353,7 +353,6 @@ function setupMapStyle(
   stations: Station[],
   disableCluster: boolean,
   routeOverlay?: RouteOverlay | null,
-  routeHighlightKm?: number | null,
 ) {
   applyFrenchLabels(map)
 
@@ -361,13 +360,11 @@ function setupMapStyle(
   if (source) {
     source.setData(stationsToGeoJSON(stations))
     syncRouteOverlay(map, routeOverlay)
-    syncRouteHighlight(map, routeOverlay, routeHighlightKm)
     return
   }
 
   addStationLayers(map, stations, disableCluster)
   syncRouteOverlay(map, routeOverlay)
-  syncRouteHighlight(map, routeOverlay, routeHighlightKm)
 }
 
 type StyleLoadListener = () => void
@@ -504,8 +501,8 @@ export function IrveMap({
         stationsRef.current,
         disableClusterRef.current,
         routeOverlayRef.current,
-        routeHighlightKmRef.current,
       )
+      syncRouteHighlight(map, routeOverlayRef.current, routeHighlightKmRef.current)
     }
     const detachStyleLoad = onStyleLoad(map, syncStationLayers)
 
@@ -614,7 +611,7 @@ export function IrveMap({
     if (!map) return
 
     const apply = () => {
-      setupMapStyle(map, stations, disableCluster, routeOverlay, routeHighlightKm)
+      setupMapStyle(map, stations, disableCluster, routeOverlay)
     }
 
     const source = map.getSource('stations') as GeoJSONSource | undefined
@@ -624,7 +621,23 @@ export function IrveMap({
     }
 
     return onceStyleLoad(map, apply)
-  }, [stations, disableCluster, routeOverlay, routeHighlightKm])
+  }, [stations, disableCluster, routeOverlay])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    const apply = () => {
+      syncRouteHighlight(map, routeOverlay, routeHighlightKm)
+    }
+
+    if (map.getSource('route-highlight') || map.getSource('route') || map.getSource('stations')) {
+      apply()
+      return
+    }
+
+    return onceStyleLoad(map, apply)
+  }, [routeHighlightKm, routeOverlay])
 
   useEffect(() => {
     const map = mapRef.current

@@ -53,29 +53,6 @@ function projectScalar(
   return Math.max(0, Math.min(1, (apx * abx + apy * aby) / abLenSq))
 }
 
-/** Distance minimale d'un point à une polyligne (km). */
-export function distancePointToPolylineKm(
-  point: LatLng,
-  coordinates: [number, number][],
-): number {
-  if (coordinates.length === 0) return Infinity
-  if (coordinates.length === 1) {
-    const [lng, lat] = coordinates[0]!
-    return haversineKm(point, { lat, lng })
-  }
-
-  let minDist = Infinity
-  for (let i = 1; i < coordinates.length; i += 1) {
-    const [lng1, lat1] = coordinates[i - 1]!
-    const [lng2, lat2] = coordinates[i]!
-    const t = projectScalar(point.lng, point.lat, lng1, lat1, lng2, lat2)
-    const closestLng = lng1 + t * (lng2 - lng1)
-    const closestLat = lat1 + t * (lat2 - lat1)
-    minDist = Math.min(minDist, haversineKm(point, { lat: closestLat, lng: closestLng }))
-  }
-  return minDist
-}
-
 export interface PolylineProjection {
   distanceAlongRouteKm: number
   distanceFromRouteKm: number

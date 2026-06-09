@@ -9,7 +9,6 @@ import {
   computeTripChargeStops,
   buildStationLookup,
   resolveStationsOnRoute,
-  tripChargeStopCount,
   type TripChargeStop,
 } from '../lib/tripCoverage'
 import { MIN_POWER_THRESHOLDS, POWER_LABELS } from '../lib/power'
@@ -217,7 +216,7 @@ export function TripsPage() {
       onRoute,
       activeTrip.vehicleRangeKm,
     )
-    const stopCount = tripChargeStopCount(activeTrip.routeDistanceKm, activeTrip.vehicleRangeKm)
+    const stopCount = chargeStops.length
     const coveredStopCount = chargeStops.filter((stop) => stop.covered).length
 
     return { onRoute, coverage, pdcCount, availablePdcCount, priceSummary, chargeStops, stopCount, coveredStopCount }
@@ -561,6 +560,7 @@ export function TripsPage() {
               routeLengthKm={activeTrip.routeDistanceKm}
               vehicleRangeKm={activeTrip.vehicleRangeKm}
               stations={activeAnalysis.onRoute}
+              chargeStops={activeAnalysis.chargeStops}
               onHoverKmChange={setChartHoverKm}
             />
           )}
