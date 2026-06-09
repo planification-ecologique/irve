@@ -254,6 +254,7 @@ export function TripsPage() {
       setToQuery('')
       setFromPlace(null)
       setToPlace(null)
+      setPanelOpen(false)
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Impossible de calculer le trajet.')
     } finally {
@@ -524,7 +525,16 @@ export function TripsPage() {
           <div className="trips-map-shell__map">
             {!activeTrip && !loading && (
               <div className="map-overlay map-overlay--hint">
-                <p>Ajoutez un trajet pour afficher la route et les stations associées.</p>
+                <div className="trips-hint">
+                  <p>Ajoutez un trajet pour afficher la route et les stations associées.</p>
+                  <button
+                    type="button"
+                    className="trips-hint__cta"
+                    onClick={() => setPanelOpen(true)}
+                  >
+                    Ajouter un trajet
+                  </button>
+                </div>
               </div>
             )}
 
@@ -554,6 +564,24 @@ export function TripsPage() {
               vehicleRangeKm={activeTrip.vehicleRangeKm}
               stations={activeAnalysis.onRoute}
             />
+          )}
+
+          {!activeTrip && !loading && (
+            <section className="trips-preview" aria-label="Aperçu des résultats">
+              <h3 className="trips-preview__title">Après ajout d'un trajet</h3>
+              <ul className="trips-preview__list">
+                <li>Route et stations dans un corridor de 15 km</li>
+                <li>Score de couverture par tronçon d'autonomie</li>
+                <li>Couverture stations et prix min le long du trajet</li>
+              </ul>
+              <button
+                type="button"
+                className="trips-preview__cta"
+                onClick={() => setPanelOpen(true)}
+              >
+                Ajouter un trajet
+              </button>
+            </section>
           )}
         </div>
       </main>

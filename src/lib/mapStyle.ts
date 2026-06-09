@@ -74,6 +74,17 @@ function usesEnglishName(value: string): boolean {
   return value === '{name_en}' || value === 'name_en' || value.includes('{name_en}')
 }
 
+/** Zoom/function stops only accept format strings — not expression arrays. */
+function toFrenchNameStopValue(value: unknown): unknown {
+  if (typeof value === 'string' && usesEnglishName(value)) {
+    return '{name:fr}'
+  }
+  if (Array.isArray(value) && value[0] === 'coalesce') {
+    return '{name:fr}'
+  }
+  return value
+}
+
 export function toFrenchNameField(value: unknown): unknown {
   if (typeof value === 'string') {
     if (usesEnglishName(value)) {
@@ -97,7 +108,7 @@ export function toFrenchNameField(value: unknown): unknown {
         ...record,
         stops: record.stops.map((stop) => {
           if (!Array.isArray(stop)) return stop
-          return [stop[0], toFrenchNameField(stop[1])]
+          return [stop[0], toFrenchNameStopValue(stop[1])]
         }),
       }
     }
