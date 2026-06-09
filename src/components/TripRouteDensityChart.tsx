@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { formatTripCityLabel } from '../lib/buildTrip'
 import { computeTripSegmentMinPrices, formatCompactPricePerKwh } from '../lib/tripPricing'
 import type { StationOnRoute } from '../lib/tripCoverage'
@@ -20,6 +20,7 @@ import {
   routePriceY,
   sumRouteAvailablePdc,
   sumRoutePdc,
+  type RouteDensitySample,
 } from '../lib/tripRouteDensity'
 
 interface TripRouteDensityChartProps {
@@ -38,14 +39,6 @@ const PAD_TOP = 16
 const PAD_BOTTOM = 30
 const PLOT_HEIGHT = CHART_HEIGHT - PAD_TOP - PAD_BOTTOM
 
-interface HoveredSample {
-  km: number
-  stationCount: number
-  pdcCount: number
-  availablePdcCount: number
-  minPricePerKwh: number | null
-}
-
 export function TripRouteDensityChart({
   fromLabel,
   toLabel,
@@ -53,25 +46,35 @@ export function TripRouteDensityChart({
   vehicleRangeKm,
   stations,
 }: TripRouteDensityChartProps) {
-  const [hovered, setHovered] = useState<HoveredSample | null>(null)
+  const [hovered, setHovered] = useState<RouteDensitySample | null>(null)
   const plotWidth = CHART_WIDTH - PAD_LEFT - PAD_RIGHT
   const safeLength = Math.max(routeLengthKm, 1)
   const windowKm = rollingWindowKm(routeLengthKm)
   const gapWarningKm = routeGapWarningKm(vehicleRangeKm)
-  const totalPdc = sumRoutePdc(stations)
-  const totalAvailablePdc = sumRouteAvailablePdc(stations)
+  const { totalPdc, totalAvailablePdc } = useMemo(
+    () => ({
+      totalPdc: sumRoutePdc(stations),
+      totalAvailablePdc: sumRouteAvailablePdc(stations),
+    }),
+    [stations],
+  )
 
   const samples = useMemo(
     () => computeRollingRouteDensity(routeLengthKm, stations, windowKm),
     [routeLengthKm, stations, windowKm],
   )
 
-  const stationScaleMax = routeDensityScaleMax(samples.map((sample) => sample.stationCount))
-  const pdcScaleMax = routeDensityScaleMax(
-    samples.map((sample) => Math.ceil(sample.pdcCount / 3)),
+  const stationScaleMax = useMemo(
+    () => routeDensityScaleMax(samples.map((sample) => sample.stationCount)),
+    [samples],
   )
-  const hasCappedStationValues = samples.some((sample) =>
-    isDensityValueCapped(sample.stationCount, stationScaleMax),
+  const pdcScaleMax = useMemo(
+    () => routeDensityScaleMax(samples.map((sample) => Math.ceil(sample.pdcCount / 3))),
+    [samples],
+  )
+  const hasCappedStationValues = useMemo(
+    () => samples.some((sample) => isDensityValueCapped(sample.stationCount, stationScaleMax)),
+    [samples, stationScaleMax],
   )
   const gapBands = useMemo(
     () => computeRouteGapBands(routeLengthKm, stations, gapWarningKm),
@@ -80,34 +83,54 @@ export function TripRouteDensityChart({
   const sparseBands = useMemo(() => computeSparseRouteBands(samples), [samples])
   const ticks = useMemo(() => routeDensityTicks(routeLengthKm), [routeLengthKm])
 
-  const xForKm = (km: number) => PAD_LEFT + (km / safeLength) * plotWidth
-  const yForStations = (count: number) =>
-    PAD_TOP + PLOT_HEIGHT - routeDensityValueHeight(count, stationScaleMax, PLOT_HEIGHT)
-  const yForPdc = (pdcCount: number) =>
-    PAD_TOP +
-    PLOT_HEIGHT -
-    routeDensityValueHeight(Math.ceil(pdcCount / 3), pdcScaleMax, PLOT_HEIGHT)
+  const xForKm = useCallback(
+    (km: number) => PAD_LEFT + (km / safeLength) * plotWidth,
+    [safeLength, plotWidth],
+  )
+  const yForStations = useCallback(
+    (count: number) =>
+      PAD_TOP + PLOT_HEIGHT - routeDensityValueHeight(count, stationScaleMax, PLOT_HEIGHT),
+    [stationScaleMax],
+  )
+  const yForPdc = useCallback(
+    (pdcCount: number) =>
+      PAD_TOP +
+      PLOT_HEIGHT -
+      routeDensityValueHeight(Math.ceil(pdcCount / 3), pdcScaleMax, PLOT_HEIGHT),
+    [pdcScaleMax],
+  )
 
-  const stationLinePath = buildSvgLinePath(
-    samples.map((sample) => ({ x: xForKm(sample.km), y: yForStations(sample.stationCount) })),
-  )
-  const pdcLinePath = buildSvgLinePath(
-    samples.map((sample) => ({ x: xForKm(sample.km), y: yForPdc(sample.pdcCount) })),
-  )
+  const { stationLinePath, pdcLinePath, minPriceLinePaths, hasMinPriceCurve, yForMinPrice, priceScale } =
+    useMemo(() => {
+      const pricedMinSamples = samples.filter(
+        (sample): sample is RouteDensitySample & { minPricePerKwh: number } =>
+          sample.minPricePerKwh != null,
+      )
+      const scale = routePriceScale(pricedMinSamples.map((sample) => sample.minPricePerKwh))
+      const yPrice = (price: number) => routePriceY(price, scale, PLOT_HEIGHT, PAD_TOP)
+      const minPaths = buildSvgLinePathsWithGaps(
+        samples.map((sample) => ({
+          x: xForKm(sample.km),
+          y: sample.minPricePerKwh != null ? yPrice(sample.minPricePerKwh) : null,
+        })),
+      )
 
-  const pricedMinSamples = samples.filter((sample) => sample.minPricePerKwh != null)
-  const priceScale = routePriceScale(
-    pricedMinSamples.map((sample) => sample.minPricePerKwh as number),
-  )
-  const yForMinPrice = (price: number) =>
-    routePriceY(price, priceScale, PLOT_HEIGHT, PAD_TOP)
-  const minPriceLinePaths = buildSvgLinePathsWithGaps(
-    samples.map((sample) => ({
-      x: xForKm(sample.km),
-      y: sample.minPricePerKwh != null ? yForMinPrice(sample.minPricePerKwh) : null,
-    })),
-  )
-  const hasMinPriceCurve = minPriceLinePaths.length > 0
+      return {
+        stationLinePath: buildSvgLinePath(
+          samples.map((sample) => ({
+            x: xForKm(sample.km),
+            y: yForStations(sample.stationCount),
+          })),
+        ),
+        pdcLinePath: buildSvgLinePath(
+          samples.map((sample) => ({ x: xForKm(sample.km), y: yForPdc(sample.pdcCount) })),
+        ),
+        minPriceLinePaths: minPaths,
+        hasMinPriceCurve: minPaths.length > 0,
+        yForMinPrice: yPrice,
+        priceScale: scale,
+      }
+    }, [samples, xForKm, yForStations, yForPdc])
 
   const rangeBands = useMemo(() => {
     const bands: { startKm: number; endKm: number }[] = []

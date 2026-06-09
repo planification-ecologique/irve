@@ -4,6 +4,7 @@ import {
   computeCoverageScore,
   coverageGradeFromScore,
   findStationsOnRoute,
+  resolveStationsOnRoute,
 } from './tripCoverage'
 import { haversineKm, polylineLengthKm, projectPointOnPolyline } from './tripGeo'
 
@@ -119,5 +120,20 @@ describe('tripCoverage', () => {
     expect(result.score).toBe(0)
     expect(result.maxGapKm).toBe(800)
     expect(coverageGradeFromScore(result.score)).toBe('poor')
+  })
+
+  it('resolveStationsOnRoute with keys matches full scan', () => {
+    const near = makeStation('near', 48.86, 2.36, 150)
+    const far = makeStation('far', 50, 8, 150)
+
+    const fromKeys = resolveStationsOnRoute([near, far], route, { corridorKm: 25, minPowerKw: 50 }, [
+      'near',
+      'far',
+    ])
+    const fullScan = resolveStationsOnRoute([near, far], route, { corridorKm: 25, minPowerKw: 50 })
+
+    expect(fromKeys).toEqual(fullScan)
+    expect(fromKeys).toHaveLength(1)
+    expect(fromKeys[0]?.station.station_key).toBe('near')
   })
 })

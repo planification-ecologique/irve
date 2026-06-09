@@ -1,6 +1,6 @@
 import type { Station } from '../types/irve'
 import type { CoverageGrade } from '../types/trip'
-import { projectPointOnPolyline } from './tripGeo'
+import { projectPointOnPolyline, toRad } from './tripGeo'
 
 export interface StationOnRoute {
   station: Station
@@ -23,33 +23,141 @@ export interface FindStationsOnRouteOptions {
   minPowerKw: number
 }
 
+interface RouteBoundingBox {
+  minLat: number
+  maxLat: number
+  minLng: number
+  maxLng: number
+}
+
+const KM_PER_DEG_LAT = 111
+
+function routeBoundingBox(
+  routeCoordinates: [number, number][],
+  corridorKm: number,
+): RouteBoundingBox | null {
+  if (routeCoordinates.length === 0) return null
+
+  let minLat = Infinity
+  let maxLat = -Infinity
+  let minLng = Infinity
+  let maxLng = -Infinity
+
+  for (const [lng, lat] of routeCoordinates) {
+    minLat = Math.min(minLat, lat)
+    maxLat = Math.max(maxLat, lat)
+    minLng = Math.min(minLng, lng)
+    maxLng = Math.max(maxLng, lng)
+  }
+
+  const midLat = (minLat + maxLat) / 2
+  const latPad = corridorKm / KM_PER_DEG_LAT
+  const lngPad = corridorKm / (KM_PER_DEG_LAT * Math.max(Math.cos(toRad(midLat)), 0.01))
+
+  return {
+    minLat: minLat - latPad,
+    maxLat: maxLat + latPad,
+    minLng: minLng - lngPad,
+    maxLng: maxLng + lngPad,
+  }
+}
+
+function isStationInBoundingBox(station: Station, bbox: RouteBoundingBox): boolean {
+  return (
+    station.lat >= bbox.minLat &&
+    station.lat <= bbox.maxLat &&
+    station.lng >= bbox.minLng &&
+    station.lng <= bbox.maxLng
+  )
+}
+
+export function buildStationLookup(stations: Station[]): Map<string, Station> {
+  const lookup = new Map<string, Station>()
+  for (const station of stations) {
+    lookup.set(station.station_key, station)
+  }
+  return lookup
+}
+
+function projectStationOnRoute(
+  station: Station,
+  routeCoordinates: [number, number][],
+  corridorKm: number,
+): StationOnRoute | null {
+  const projection = projectPointOnPolyline(
+    { lat: station.lat, lng: station.lng },
+    routeCoordinates,
+  )
+
+  if (projection.distanceFromRouteKm > corridorKm) return null
+
+  return {
+    station,
+    distanceAlongRouteKm: projection.distanceAlongRouteKm,
+    distanceFromRouteKm: projection.distanceFromRouteKm,
+  }
+}
+
+function projectStationsOnRoute(
+  candidates: Iterable<Station>,
+  routeCoordinates: [number, number][],
+  options: FindStationsOnRouteOptions,
+  bbox: RouteBoundingBox | null = null,
+): StationOnRoute[] {
+  const { corridorKm, minPowerKw } = options
+  const onRoute: StationOnRoute[] = []
+
+  for (const station of candidates) {
+    if (station.summary.max_power < minPowerKw) continue
+    if (bbox && !isStationInBoundingBox(station, bbox)) continue
+
+    const projected = projectStationOnRoute(station, routeCoordinates, corridorKm)
+    if (projected) onRoute.push(projected)
+  }
+
+  return onRoute.sort((a, b) => a.distanceAlongRouteKm - b.distanceAlongRouteKm)
+}
+
 export function findStationsOnRoute(
   stations: Station[],
   routeCoordinates: [number, number][],
   options: FindStationsOnRouteOptions,
 ): StationOnRoute[] {
-  const { corridorKm, minPowerKw } = options
-  const onRoute: StationOnRoute[] = []
+  const bbox = routeBoundingBox(routeCoordinates, options.corridorKm)
+  return projectStationsOnRoute(stations, routeCoordinates, options, bbox)
+}
 
-  for (const station of stations) {
-    if (station.summary.max_power < minPowerKw) continue
+function refreshStationsOnRoute(
+  stationLookup: Map<string, Station>,
+  stationKeys: string[],
+  routeCoordinates: [number, number][],
+  options: FindStationsOnRouteOptions,
+): StationOnRoute[] {
+  const candidates: Station[] = []
+  for (const key of stationKeys) {
+    const station = stationLookup.get(key)
+    if (station) candidates.push(station)
+  }
+  return projectStationsOnRoute(candidates, routeCoordinates, options)
+}
 
-    const projection = projectPointOnPolyline(
-      { lat: station.lat, lng: station.lng },
+export function resolveStationsOnRoute(
+  stations: Station[],
+  routeCoordinates: [number, number][],
+  options: FindStationsOnRouteOptions,
+  stationKeys?: string[],
+  stationLookup?: Map<string, Station>,
+): StationOnRoute[] {
+  if (stationKeys && stationKeys.length > 0) {
+    return refreshStationsOnRoute(
+      stationLookup ?? buildStationLookup(stations),
+      stationKeys,
       routeCoordinates,
+      options,
     )
-
-    if (projection.distanceFromRouteKm > corridorKm) continue
-
-    onRoute.push({
-      station,
-      distanceAlongRouteKm: projection.distanceAlongRouteKm,
-      distanceFromRouteKm: projection.distanceFromRouteKm,
-    })
   }
 
-  onRoute.sort((a, b) => a.distanceAlongRouteKm - b.distanceAlongRouteKm)
-  return onRoute
+  return findStationsOnRoute(stations, routeCoordinates, options)
 }
 
 export function coverageGradeFromScore(score: number): CoverageGrade {

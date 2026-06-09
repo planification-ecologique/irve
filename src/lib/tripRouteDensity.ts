@@ -24,7 +24,7 @@ export interface RouteGapBand {
 }
 
 /** Plafond d'échelle — évite qu'une agglomération écrase le reste du trajet. */
-export const MAX_DENSITY_BIN_SCALE = 8
+export const MAX_DENSITY_BIN_SCALE = 10
 
 /** Largeur de fenêtre glissante (km) pour la courbe de densité. */
 export function rollingWindowKm(routeLengthKm: number): number {
@@ -169,19 +169,16 @@ export function computeSparseRouteBands(
   return bands
 }
 
-/** Intervalles entre deux stations consécutives dépassant le seuil d'alerte. */
+/** Intervalles entre stations consécutives ≥ seuil. Entrée triée par distanceAlongRouteKm. */
 export function computeRouteGapBands(
   routeLengthKm: number,
   stations: StationOnRoute[],
   warnGapKm: number,
 ): RouteGapBand[] {
-  const sorted = [...stations].sort(
-    (a, b) => a.distanceAlongRouteKm - b.distanceAlongRouteKm,
-  )
   const bands: RouteGapBand[] = []
   let prevKm = 0
 
-  for (const item of sorted) {
+  for (const item of stations) {
     const gap = item.distanceAlongRouteKm - prevKm
     if (gap >= warnGapKm) {
       bands.push({ startKm: prevKm, endKm: item.distanceAlongRouteKm, gapKm: gap })

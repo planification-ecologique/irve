@@ -6,12 +6,14 @@ import { useTheme } from '../hooks/useTheme'
 import { buildSavedTrip, tripLabel } from '../lib/buildTrip'
 import {
   computeCoverageScore,
-  findStationsOnRoute,
+  buildStationLookup,
+  resolveStationsOnRoute,
   type StationOnRoute,
 } from '../lib/tripCoverage'
 import { MIN_POWER_THRESHOLDS, POWER_LABELS } from '../lib/power'
 import { computeTripPriceSummary } from '../lib/tripPricing'
 import { formatTariffPrice } from '../lib/tariffDisplay'
+import { sumRouteAvailablePdc, sumRoutePdc } from '../lib/tripRouteDensity'
 import type { Station } from '../types/irve'
 import {
   COVERAGE_GRADE_LABELS,
@@ -117,31 +119,34 @@ function coverageClass(grade: CoverageGrade): string {
 
 function TripCard({
   trip,
-  liveScore,
-  liveGrade,
   active,
+  score,
+  grade,
   onSelect,
   onRemove,
 }: {
   trip: SavedTrip
-  liveScore: number
-  liveGrade: CoverageGrade
   active: boolean
+  score?: number
+  grade?: CoverageGrade
   onSelect: () => void
   onRemove: () => void
 }) {
+  const displayScore = score ?? trip.coverageScore
+  const displayGrade = grade ?? trip.coverageGrade
+
   return (
     <article className={`trips-card${active ? ' trips-card--active' : ''}`}>
       <button type="button" className="trips-card__main" onClick={onSelect}>
         <div className="trips-card__head">
           <strong>{tripLabel(trip)}</strong>
-          <span className={coverageClass(liveGrade)}>{liveScore}%</span>
+          <span className={coverageClass(displayGrade)}>{displayScore}%</span>
         </div>
         <p className="trips-card__meta">
           {trip.routeDistanceKm.toLocaleString('fr-FR')} km · {trip.stationCount} stations · autonomie{' '}
           {trip.vehicleRangeKm} km
         </p>
-        <p className="trips-card__grade">{COVERAGE_GRADE_LABELS[liveGrade]}</p>
+        <p className="trips-card__grade">{COVERAGE_GRADE_LABELS[displayGrade]}</p>
       </button>
       <button
         type="button"
@@ -163,6 +168,7 @@ export function TripsPage() {
   const { theme, toggleTheme } = useTheme()
   const { data, dataSource, lastFetchedAt, loading, error, refetch } = useIrveData()
   const stations = useMemo(() => data?.stations ?? [], [data?.stations])
+  const stationLookup = useMemo(() => buildStationLookup(stations), [stations])
   const { trips, activeTrip, activeTripId, setActiveTripId, addTrip, removeTrip } = useSavedTrips()
 
   const [fromQuery, setFromQuery] = useState('')
@@ -180,24 +186,27 @@ export function TripsPage() {
   const activeAnalysis = useMemo(() => {
     if (!activeTrip || stations.length === 0) return null
 
-    const onRoute = findStationsOnRoute(stations, activeTrip.routeCoordinates, {
-      corridorKm: activeTrip.corridorKm,
-      minPowerKw: activeTrip.minPowerKw,
-    })
+    const onRoute = resolveStationsOnRoute(
+      stations,
+      activeTrip.routeCoordinates,
+      {
+        corridorKm: activeTrip.corridorKm,
+        minPowerKw: activeTrip.minPowerKw,
+      },
+      activeTrip.stationKeys,
+      stationLookup,
+    )
     const coverage = computeCoverageScore(
       activeTrip.routeDistanceKm,
       onRoute,
       activeTrip.vehicleRangeKm,
     )
-    const pdcCount = onRoute.reduce((sum, item) => sum + item.station.pdc_count, 0)
-    const availablePdcCount = onRoute.reduce(
-      (sum, item) => sum + item.station.dynamic_summary.available_count,
-      0,
-    )
+    const pdcCount = sumRoutePdc(onRoute)
+    const availablePdcCount = sumRouteAvailablePdc(onRoute)
     const priceSummary = computeTripPriceSummary(onRoute.map((item) => item.station))
 
     return { onRoute, coverage, pdcCount, availablePdcCount, priceSummary }
-  }, [activeTrip, stations])
+  }, [activeTrip, stations, stationLookup])
 
   const routeStations = useMemo(
     () => activeAnalysis?.onRoute.map((item) => item.station) ?? [],
@@ -214,23 +223,6 @@ export function TripsPage() {
       },
     }
   }, [activeTrip])
-
-  const liveScoresByTrip = useMemo(() => {
-    const scores = new Map<string, { score: number; grade: CoverageGrade }>()
-    for (const trip of trips) {
-      const onRoute = findStationsOnRoute(stations, trip.routeCoordinates, {
-        corridorKm: trip.corridorKm,
-        minPowerKw: trip.minPowerKw,
-      })
-      const coverage = computeCoverageScore(
-        trip.routeDistanceKm,
-        onRoute,
-        trip.vehicleRangeKm,
-      )
-      scores.set(trip.id, { score: coverage.score, grade: coverage.grade })
-    }
-    return scores
-  }, [trips, stations])
 
   const handleAddTrip = async () => {
     setFormError(null)
@@ -376,27 +368,25 @@ export function TripsPage() {
 
             {trips.length > 0 ? (
               <div className="trips-list">
-                {trips.map((trip) => {
-                  const live = liveScoresByTrip.get(trip.id) ?? {
-                    score: trip.coverageScore,
-                    grade: trip.coverageGrade,
-                  }
-                  return (
-                    <TripCard
-                      key={trip.id}
-                      trip={trip}
-                      liveScore={live.score}
-                      liveGrade={live.grade}
-                      active={trip.id === activeTripId}
-                      onSelect={() => {
-                        setActiveTripId(trip.id)
-                        setSelected(null)
-                        setPanelOpen(false)
-                      }}
-                      onRemove={() => removeTrip(trip.id)}
-                    />
-                  )
-                })}
+                {trips.map((trip) => (
+                  <TripCard
+                    key={trip.id}
+                    trip={trip}
+                    active={trip.id === activeTripId}
+                    score={
+                      trip.id === activeTripId ? activeAnalysis?.coverage.score : undefined
+                    }
+                    grade={
+                      trip.id === activeTripId ? activeAnalysis?.coverage.grade : undefined
+                    }
+                    onSelect={() => {
+                      setActiveTripId(trip.id)
+                      setSelected(null)
+                      setPanelOpen(false)
+                    }}
+                    onRemove={() => removeTrip(trip.id)}
+                  />
+                ))}
               </div>
             ) : (
               <p className="trips-empty">

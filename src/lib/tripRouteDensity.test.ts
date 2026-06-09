@@ -6,6 +6,7 @@ import {
   computeRouteDensityBins,
   computeRouteGapBands,
   computeSparseRouteBands,
+  MAX_DENSITY_BIN_SCALE,
   routeDensityBinSizeKm,
   routeDensityScaleMax,
   routeDensityTicks,
@@ -68,7 +69,7 @@ describe('tripRouteDensity', () => {
     const dense = Array.from({ length: 25 }, (_, i) => stationAt(i))
     const samples = computeRollingRouteDensity(200, dense, 30, 10)
     const scaleMax = routeDensityScaleMax(samples.map((sample) => sample.stationCount))
-    expect(scaleMax).toBe(8)
+    expect(scaleMax).toBe(MAX_DENSITY_BIN_SCALE)
   })
 
   it('génère des graduations lisibles', () => {

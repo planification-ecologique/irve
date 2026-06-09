@@ -5,7 +5,7 @@ export interface LatLng {
   lng: number
 }
 
-function toRad(deg: number): number {
+export function toRad(deg: number): number {
   return (deg * Math.PI) / 180
 }
 

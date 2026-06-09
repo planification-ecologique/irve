@@ -369,6 +369,8 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
+  z-index: 6;
 }
 
 .trips-map-shell__map {
@@ -494,9 +496,14 @@
 
 .trips-density__chart-wrap {
   position: relative;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-x pan-y;
+  overflow: visible;
+}
+
+@media (min-width: 901px) {
+  .trips-density__chart-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 .trips-density__chart {
@@ -598,9 +605,9 @@
   box-shadow: var(--shadow-md);
   pointer-events: none;
   white-space: normal;
-  max-width: min(92vw, 16rem);
+  max-width: 11rem;
   font-size: 0.75rem;
-  z-index: 2;
+  z-index: 20;
 }
 
 .trips-density__tooltip strong {
@@ -665,10 +672,6 @@
     padding-left: 0.65rem;
     padding-right: 0.65rem;
     padding-bottom: calc(0.85rem + env(safe-area-inset-bottom, 0px));
-  }
-
-  .trips-density__chart-wrap {
-    overflow-x: visible;
   }
 
   .trips-density__chart {
