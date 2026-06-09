@@ -15,9 +15,6 @@ export const CONNECTOR_META: Record<
 
 export const CONNECTOR_TYPES: ConnectorType[] = ['ccs', 'type2', 'chademo', 'ef']
 
-/** Connecteurs proposés en filtre (pas T2 : AC ≤43 kW, hors seuils puissance min.). */
-export const CONNECTOR_FILTER_TYPES: ConnectorType[] = ['ccs', 'chademo', 'ef']
-
 /** Certains opérateurs (ex. Izivia) taguent le DC en T2 sans flag CCS. */
 export function isMisTaggedDcOnly(summary: StationSummary): boolean {
   return (
@@ -28,13 +25,18 @@ export function isMisTaggedDcOnly(summary: StationSummary): boolean {
   )
 }
 
-function hasCcs(summary: StationSummary): boolean {
+export function stationHasEffectiveCcs(summary: StationSummary): boolean {
   if (summary.has_prise_type_combo_ccs) return true
   // DC ≥50 kW sans CHAdeMO, flag CCS absent → inférer Combo CCS
   if (summary.max_power >= 50 && !summary.has_prise_type_chademo && isMisTaggedDcOnly(summary)) {
     return true
   }
   return false
+}
+
+/** CHAdeMO sans Combo CCS effectif — legacy, masqué par défaut sur la carto rapide. */
+export function isChademoOnlyWithoutCcs(summary: StationSummary): boolean {
+  return summary.has_prise_type_chademo && !stationHasEffectiveCcs(summary)
 }
 
 function hasType2(summary: StationSummary, minPower: number): boolean {
@@ -51,7 +53,7 @@ export function stationHasConnector(
 ): boolean {
   switch (connector) {
     case 'ccs':
-      return hasCcs(summary)
+      return stationHasEffectiveCcs(summary)
     case 'type2':
       return hasType2(summary, minPower)
     case 'chademo':

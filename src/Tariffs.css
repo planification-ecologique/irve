@@ -310,33 +310,6 @@
   font-weight: 600;
 }
 
-.app-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: 0.35rem;
-}
-
-.app-nav__link {
-  padding: 0.2rem 0.55rem;
-  border-radius: 8px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-decoration: none;
-  transition: background 0.15s, color 0.15s;
-}
-
-.app-nav__link:hover {
-  color: var(--text);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
-.app-nav__link--active {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-}
-
 .tariffs-page__coverage {
   margin-top: 0.65rem !important;
   font-size: 0.875rem !important;

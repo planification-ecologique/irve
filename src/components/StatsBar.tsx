@@ -105,10 +105,14 @@ export function StatsBar({
   return (
     <header className="stats-bar">
       <div className="stats-bar__brand">
-        <div className="stats-bar__logo">⚡</div>
-        <div>
-          <h1>Carto IRVE</h1>
-          <p>Infrastructure de recharge électrique en itiniérance — France</p>
+        <img
+          src="/logo-electrifions.svg"
+          alt="Électrifions la France"
+          className="stats-bar__logo"
+        />
+        <div className="stats-bar__identity">
+          <h1>Recharger en itinérance</h1>
+          <p>Données ouvertes - recharge électrique en itinérance (&gt;50 kW)</p>
           <AppNav active={activePage} />
         </div>
       </div>

@@ -38,7 +38,7 @@ function addStationLayers(map: Map, stations: Station[]) {
     source: 'stations',
     filter: ['all', ['has', 'point_count'], ['>', ['get', 'sum_available'], 0]],
     paint: {
-      'circle-color': '#22d3a5',
+      'circle-color': '#000091',
       'circle-radius': [
         'step',
         ['get', 'point_count'],
@@ -124,7 +124,7 @@ function addStationLayers(map: Map, stations: Station[]) {
       ['>', ['get', 'available_count'], 0],
     ],
     paint: {
-      'circle-color': '#22d3a5',
+      'circle-color': '#000091',
       'circle-radius': [
         'interpolate',
         ['linear'],
