@@ -30,7 +30,7 @@ export interface SavedTrip {
 
 export type CoverageGrade = 'excellent' | 'good' | 'fair' | 'poor'
 
-export const DEFAULT_VEHICLE_RANGE_KM = 400
+export const DEFAULT_VEHICLE_RANGE_KM = 300
 export const DEFAULT_CORRIDOR_KM = 15
 export const DEFAULT_TRIP_MIN_POWER_KW = 150
 
