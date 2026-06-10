@@ -74,8 +74,8 @@ describe('tripPricing', () => {
     const segments = computeTripSegmentMinPrices(
       400,
       [
-        { distanceAlongRouteKm: 50, station: station('Ionity', 350, 2) },
-        { distanceAlongRouteKm: 250, station: station('TotalEnergies Marketing France', 150, 3) },
+        { distanceAlongRouteKm: 50, distanceFromRouteKm: 1, station: station('Ionity', 350, 2) },
+        { distanceAlongRouteKm: 250, distanceFromRouteKm: 1, station: station('TotalEnergies Marketing France', 150, 3) },
       ],
       400,
     )
