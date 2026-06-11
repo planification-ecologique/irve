@@ -3,7 +3,16 @@ import maplibregl, { type GeoJSONSource, type Map, type MapMouseEvent } from 'ma
 import type { Feature, Point } from 'geojson'
 import type { Station, StationFeatureProperties } from '../types/irve'
 import { stationsToGeoJSON } from '../lib/geojson'
-import { applyFrenchLabels, getCartoStyleUrl, MAP_LOCALE_FR, preserveStationStyle } from '../lib/mapStyle'
+import {
+  applyFrenchLabels,
+  buildRasterFallbackStyle,
+  getCartoStyleUrl,
+  isBasemapFallbackPreferred,
+  isCartoBasemapError,
+  MAP_LOCALE_FR,
+  preserveStationStyle,
+  rememberBasemapFallback,
+} from '../lib/mapStyle'
 import type { Theme } from '../lib/theme'
 import { clusterProperties, mixedClusterColor, mixedClusterOpacity, mixedPointColor, mixedPointOpacity } from '../lib/mapLayers'
 import { formatMaxPowerKw } from '../lib/formatPower'
@@ -12,6 +21,9 @@ import { getAvailabilityTone } from '../lib/stationDisplay'
 
 const FRANCE_CENTER: [number, number] = [2.5, 46.6]
 const FRANCE_ZOOM = 5.2
+
+/** Délai au-delà duquel, sans tuile de fond chargée, on bascule sur l'IGN. */
+const BASEMAP_FALLBACK_TIMEOUT_MS = 8000
 
 interface IrveMapProps {
   stations: Station[]
@@ -186,6 +198,7 @@ export function IrveMap({ stations, selectedKey, onSelect, theme }: IrveMapProps
   const selectedKeyRef = useRef(selectedKey)
   const popupRef = useRef<maplibregl.Popup | null>(null)
   const hoveredKeyRef = useRef<string | null>(null)
+  const fallbackActiveRef = useRef(isBasemapFallbackPreferred())
 
   stationsRef.current = stations
   selectedKeyRef.current = selectedKey
@@ -246,9 +259,13 @@ export function IrveMap({ stations, selectedKey, onSelect, theme }: IrveMapProps
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
 
+    const initialStyle = fallbackActiveRef.current
+      ? buildRasterFallbackStyle(themeRef.current)
+      : getCartoStyleUrl(themeRef.current)
+
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: getCartoStyleUrl(themeRef.current),
+      style: initialStyle,
       center: FRANCE_CENTER,
       zoom: FRANCE_ZOOM,
       pitch: 0,
@@ -272,6 +289,50 @@ export function IrveMap({ stations, selectedKey, onSelect, theme }: IrveMapProps
       setupMapStyle(map, stationsRef.current)
     }
     const detachStyleLoad = onStyleLoad(map, syncStationLayers)
+
+    // Bascule vers le fond IGN si le fond Carto est inaccessible (CORS / réseau).
+    let basemapTimeout: ReturnType<typeof setTimeout> | undefined
+    let basemapHealthy = false
+
+    const clearBasemapTimeout = () => {
+      if (basemapTimeout !== undefined) {
+        clearTimeout(basemapTimeout)
+        basemapTimeout = undefined
+      }
+    }
+
+    const activateFallback = () => {
+      if (fallbackActiveRef.current) return
+      fallbackActiveRef.current = true
+      rememberBasemapFallback()
+      clearBasemapTimeout()
+      hideHoverPopup()
+      map.setStyle(buildRasterFallbackStyle(themeRef.current), {
+        diff: false,
+        transformStyle: preserveStationStyle,
+      })
+    }
+
+    map.on('error', (event) => {
+      if (isCartoBasemapError((event as { error?: unknown }).error)) {
+        activateFallback()
+      }
+    })
+
+    // Une tuile de fond effectivement chargée = réseau OK, on annule le filet.
+    map.on('data', (event) => {
+      const data = event as { dataType?: string; sourceId?: string; tile?: unknown }
+      if (data.dataType === 'source' && data.sourceId !== 'stations' && data.tile) {
+        basemapHealthy = true
+        clearBasemapTimeout()
+      }
+    })
+
+    if (!fallbackActiveRef.current) {
+      basemapTimeout = setTimeout(() => {
+        if (!basemapHealthy) activateFallback()
+      }, BASEMAP_FALLBACK_TIMEOUT_MS)
+    }
 
     map.on('click', 'clusters', (event: MapMouseEvent) => {
       hideHoverPopup()
@@ -354,6 +415,7 @@ export function IrveMap({ stations, selectedKey, onSelect, theme }: IrveMapProps
     mapRef.current = map
 
     return () => {
+      clearBasemapTimeout()
       detachStyleLoad()
       hideHoverPopup()
       map.remove()
@@ -367,7 +429,10 @@ export function IrveMap({ stations, selectedKey, onSelect, theme }: IrveMapProps
 
     themeRef.current = theme
     hideHoverPopup()
-    map.setStyle(getCartoStyleUrl(theme), {
+    const nextStyle = fallbackActiveRef.current
+      ? buildRasterFallbackStyle(theme)
+      : getCartoStyleUrl(theme)
+    map.setStyle(nextStyle, {
       diff: false,
       transformStyle: preserveStationStyle,
     })
