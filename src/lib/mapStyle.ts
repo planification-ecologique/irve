@@ -11,6 +11,95 @@ export function getCartoStyleUrl(theme: Theme): string {
   return theme === 'dark' ? CARTO_STYLE_URL_DARK : CARTO_STYLE_URL
 }
 
+// --- Fond de carte de secours -------------------------------------------
+//
+// Sur certains réseaux (proxy d'inspection SSL des postes SPM, par ex.) les
+// réponses du CDN Carto sont ré-émises sans en-tête `Access-Control-Allow-Origin`.
+// MapLibre charge tuiles vectorielles ET glyphes via fetch/XHR : tout échoue
+// alors en CORS et le fond reste vide. On bascule dans ce cas vers un fond
+// raster servi par la Géoplateforme de l'IGN (service de l'État, sans clé),
+// très généralement accessible depuis les réseaux gouvernementaux.
+
+/** Tuiles raster « Plan IGN v2 » (Géoplateforme, WMTS, sans clé d'accès). */
+export const IGN_PLAN_TILES_URL =
+  'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0' +
+  '&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM' +
+  '&FORMAT=image/png&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}'
+
+/**
+ * Glyphes déclarés pour le calque `cluster-count`. Sur le réseau qui bloque
+ * Carto, ce fetch échoue aussi mais MapLibre rend alors les chiffres en local
+ * (cf. « Rendering codepoint locally instead ») : les numéros restent lisibles.
+ */
+const FALLBACK_GLYPHS_URL = 'https://tiles.basemaps.cartocdn.com/fonts/{fontstack}/{range}.pbf'
+
+/** Clé localStorage : mémorise qu'un poste doit démarrer directement sur l'IGN. */
+export const BASEMAP_FALLBACK_STORAGE_KEY = 'irve-basemap-fallback'
+
+export function isBasemapFallbackPreferred(): boolean {
+  try {
+    return localStorage.getItem(BASEMAP_FALLBACK_STORAGE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function rememberBasemapFallback(): void {
+  try {
+    localStorage.setItem(BASEMAP_FALLBACK_STORAGE_KEY, '1')
+  } catch {
+    // localStorage indisponible — la bascule restera valable pour cette session.
+  }
+}
+
+/** Détecte une erreur de chargement imputable au fond Carto (CORS / réseau). */
+export function isCartoBasemapError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const { url, message } = error as { url?: string; message?: string }
+  return `${url ?? ''} ${message ?? ''}`.includes('cartocdn.com')
+}
+
+/** Style raster minimal sur fond IGN, prêt à recevoir les calques stations. */
+export function buildRasterFallbackStyle(theme: Theme): StyleSpecification {
+  const dark = theme === 'dark'
+
+  return {
+    version: 8,
+    glyphs: FALLBACK_GLYPHS_URL,
+    sources: {
+      'ign-plan': {
+        type: 'raster',
+        tiles: [IGN_PLAN_TILES_URL],
+        tileSize: 256,
+        minzoom: 0,
+        maxzoom: 19,
+        attribution: '© IGN-F / Géoplateforme',
+      },
+    },
+    layers: [
+      {
+        id: 'background',
+        type: 'background',
+        paint: { 'background-color': dark ? '#0b0e14' : '#eaeaea' },
+      },
+      {
+        id: 'ign-plan',
+        type: 'raster',
+        source: 'ign-plan',
+        // En thème sombre, l'IGN n'a pas de variante : on assombrit le raster.
+        paint: dark
+          ? {
+              'raster-brightness-max': 0.55,
+              'raster-saturation': -0.35,
+              'raster-contrast': -0.05,
+              'raster-opacity': 0.92,
+            }
+          : {},
+      },
+    ],
+  }
+}
+
 const STATION_LAYER_IDS = new Set([
   'cluster-glow',
   'clusters',
