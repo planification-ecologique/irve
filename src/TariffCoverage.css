@@ -1,0 +1,129 @@
+.tariff-coverage-ops {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.tariff-coverage-ops__summary {
+  margin: 0 0 0.875rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.tariff-coverage-ops__summary strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.tariff-coverage-ops__cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 1.25rem;
+}
+
+@media (max-width: 640px) {
+  .tariff-coverage-ops__cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tariff-coverage-ops__col-title {
+  margin: 0 0 0.2rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.tariff-coverage-ops__col-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.tariff-coverage-ops__empty {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.tariff-coverage-ops__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tariff-coverage-ops__item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.tariff-coverage-ops__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.tariff-coverage-ops__pct {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.tariff-coverage-ops__col:first-child .tariff-coverage-ops__pct {
+  color: #2563eb;
+}
+
+[data-theme='dark'] .tariff-coverage-ops__col:first-child .tariff-coverage-ops__pct {
+  color: #93c5fd;
+}
+
+.tariff-matrix-table__coverage {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+}
+
+.tariff-matrix-table__coverage--qc {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+[data-theme='dark'] .tariff-matrix-table__coverage--qc {
+  color: #93c5fd;
+}
+
+.tariff-matrix-table__coverage--displayable {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.tariff-matrix-table__coverage--na {
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.tariff-matrix-table__model {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.tariff-matrix-table__coverage-head {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  text-align: right;
+  white-space: nowrap;
+}

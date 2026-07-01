@@ -1,10 +1,13 @@
 import {
-  getOperatorTariff,
   pickDirectTier,
   type OperatorTariff,
 } from '../data/operatorTariffs'
 import type { Station } from '../types/irve'
-import { formatTariffTierPrice, tariffHasDisplayablePrice } from './tariffDisplay'
+import {
+  formatTariffTierPrice,
+  getStationPricePerKwhBounds,
+  tariffHasDisplayablePrice,
+} from './tariffDisplay'
 
 export interface TariffPowerRange {
   id: string
@@ -157,14 +160,11 @@ export function computeWeightedTariffAverages(stations: Station[]): RangeWeighte
     const range = TARIFF_POWER_RANGES.find((r) => r.matchesStationMaxPowerKw(maxPower))
     if (!range) continue
 
-    const tariff = getOperatorTariff(station.nom_operateur)
-    if (!tariff || !tariffHasDisplayablePrice(tariff)) continue
-
-    const tier = pickDirectTier(tariff, maxPower)
-    if (!tier || tier.unit !== '€/kWh') continue
+    const bounds = getStationPricePerKwhBounds(station)
+    if (!bounds) continue
 
     const bucket = acc.get(range.id)!
-    bucket.priceSum += tier.value * station.pdc_count
+    bucket.priceSum += bounds.min * station.pdc_count
     bucket.pdc += station.pdc_count
     bucket.stations += 1
   }
@@ -201,13 +201,10 @@ export function computeTariffRangeBoxPlots(stations: Station[]): TariffRangeBoxP
 
     pdcByRange.set(range.id, (pdcByRange.get(range.id) ?? 0) + station.pdc_count)
 
-    const tariff = getOperatorTariff(station.nom_operateur)
-    if (!tariff || !tariffHasDisplayablePrice(tariff)) continue
+    const bounds = getStationPricePerKwhBounds(station)
+    if (!bounds) continue
 
-    const tier = pickDirectTier(tariff, maxPower)
-    if (!tier || tier.unit !== '€/kWh') continue
-
-    samplesByRange.get(range.id)!.push({ value: tier.value, weight: station.pdc_count })
+    samplesByRange.get(range.id)!.push({ value: bounds.min, weight: station.pdc_count })
     stationsByRange.set(range.id, (stationsByRange.get(range.id) ?? 0) + 1)
   }
 

@@ -82,19 +82,39 @@ export function formatDirectCb(value: boolean | null): string {
   return '—'
 }
 
-export type StationTariffDataQuality = 'reliable' | 'approximate' | 'missing'
+export type StationTariffDataQuality =
+  | 'qualicharge'
+  | 'reliable'
+  | 'approximate'
+  | 'missing'
 
 export const STATION_TARIFF_QUALITY_LABELS: Record<StationTariffDataQuality, string> = {
-  reliable: 'Données fiables',
-  approximate: 'Données approximatives',
+  qualicharge: 'Tarif QualiCharge (borne)',
+  reliable: 'Grille éditoriale fiable',
+  approximate: 'Grille éditoriale approximative',
   missing: 'Données manquantes',
 }
 
-/** Qualité tarifaire d’une station selon la fiche opérateur jointe. */
+/** Prix €/kWh renseigné point par point dans QualiCharge (`summary.pricing_*`). */
+export function stationHasQualichargePricing(
+  station: Pick<Station, 'summary'>,
+): boolean {
+  const { summary } = station
+  if (summary.price_per_kwh != null) return true
+  if (summary.pricing_value != null) {
+    const unit = summary.pricing_unit?.toLowerCase() ?? ''
+    return unit.includes('kwh')
+  }
+  return false
+}
+
+/** Qualité tarifaire d’une station : QualiCharge live, puis fiche opérateur jointe. */
 export function classifyStationTariffQuality(
-  nomOperateur: string | null | undefined,
+  station: Pick<Station, 'nom_operateur' | 'summary'>,
 ): StationTariffDataQuality {
-  const tariff = getOperatorTariff(nomOperateur)
+  if (stationHasQualichargePricing(station)) return 'qualicharge'
+
+  const tariff = getOperatorTariff(station.nom_operateur)
   if (!tariff || !tariffHasDisplayablePrice(tariff)) return 'missing'
   if (
     tariff.pricingModel === 'national-range' ||
@@ -107,6 +127,7 @@ export function classifyStationTariffQuality(
 }
 
 export interface StationTariffQualityBreakdown {
+  qualicharge: number
   reliable: number
   approximate: number
   missing: number
@@ -116,16 +137,65 @@ export interface StationTariffQualityBreakdown {
 export function computeStationTariffQualityBreakdown(
   stations: readonly Station[],
 ): StationTariffQualityBreakdown {
+  let qualicharge = 0
   let reliable = 0
   let approximate = 0
   let missing = 0
   for (const station of stations) {
-    const quality = classifyStationTariffQuality(station.nom_operateur)
-    if (quality === 'reliable') reliable += 1
+    const quality = classifyStationTariffQuality(station)
+    if (quality === 'qualicharge') qualicharge += 1
+    else if (quality === 'reliable') reliable += 1
     else if (quality === 'approximate') approximate += 1
     else missing += 1
   }
-  return { reliable, approximate, missing, total: stations.length }
+  return { qualicharge, reliable, approximate, missing, total: stations.length }
+}
+
+export function countStationsWithQualichargePricing(stations: readonly Station[]): number {
+  return stations.filter(stationHasQualichargePricing).length
+}
+
+export interface TariffQualichargeCoverage {
+  pricedPdc: number
+  totalPdc: number
+}
+
+/** Couverture tarif API par fiche opérateur (`match` → `nom_operateur`), pondérée en PDC. */
+export function computeQualichargePdcCoverageByTariff(
+  stations: readonly Station[],
+  tariffs: readonly { id: string; match: readonly string[] }[],
+): Map<string, TariffQualichargeCoverage> {
+  const map = new Map<string, TariffQualichargeCoverage>()
+  for (const tariff of tariffs) {
+    const names = new Set(tariff.match)
+    let pricedPdc = 0
+    let totalPdc = 0
+    for (const station of stations) {
+      if (!station.nom_operateur || !names.has(station.nom_operateur)) continue
+      totalPdc += station.pdc_count
+      if (stationHasQualichargePricing(station)) pricedPdc += station.pdc_count
+    }
+    if (totalPdc > 0) map.set(tariff.id, { pricedPdc, totalPdc })
+  }
+  return map
+}
+
+const QUALICHARGE_PCT_FMT = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 })
+const QUALICHARGE_PCT_FMT_ONE = new Intl.NumberFormat('fr-FR', {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+})
+
+export function formatQualichargePdcCoveragePct(coverage: TariffQualichargeCoverage): string {
+  const pct = (coverage.pricedPdc / coverage.totalPdc) * 100
+  if (pct >= 99.95) return '100'
+  if (pct >= 10) return QUALICHARGE_PCT_FMT.format(pct)
+  return QUALICHARGE_PCT_FMT_ONE.format(pct)
+}
+
+export function formatQualichargePdcCoverageTitle(coverage: TariffQualichargeCoverage): string {
+  const countFmt = new Intl.NumberFormat('fr-FR')
+  return `${countFmt.format(coverage.pricedPdc)} PDC sur ${countFmt.format(coverage.totalPdc)} avec tarif QualiCharge API`
 }
 
 export function tariffHasDisplayablePrice(tariff: OperatorTariff): boolean {

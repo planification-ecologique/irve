@@ -227,6 +227,15 @@
   color: var(--danger);
 }
 
+.tariff-badge--qualicharge {
+  background: color-mix(in srgb, #3b82f6 16%, transparent);
+  color: #2563eb;
+}
+
+[data-theme='dark'] .tariff-badge--qualicharge {
+  color: #93c5fd;
+}
+
 .tariff-card__meta {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));

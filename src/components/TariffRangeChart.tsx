@@ -163,7 +163,7 @@ export function TariffBoxPlotChart({
   if (!loading && !hasData) {
     return (
       <p className="tariffs-page__empty">
-        Pas assez de stations avec grille fixe pour tracer un box plot.
+        Pas assez de stations tarifées pour tracer un box plot.
       </p>
     )
   }
@@ -174,7 +174,8 @@ export function TariffBoxPlotChart({
         Distribution des prix par palier (box plot)
       </h3>
       <p className="tariffs-box__hint">
-        Quartiles pondérés par PDC · boîte Q1–Q3 · trait médiane · moustaches 1,5× IQR.
+        Quartiles pondérés par PDC · tarifs QualiCharge ou grilles éditoriales · boîte Q1–Q3 · trait
+        médiane · moustaches 1,5× IQR.
       </p>
 
       <div className="tariffs-box__rows">

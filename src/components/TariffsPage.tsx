@@ -8,7 +8,10 @@ import {
 import {
   compareTariffsForTableSort,
   CONFIDENCE_LABELS,
+  computeQualichargePdcCoverageByTariff,
   formatDirectCb,
+  formatQualichargePdcCoveragePct,
+  formatQualichargePdcCoverageTitle,
   formatPowerRange,
   formatTariffDate,
   formatTariffPrice,
@@ -19,6 +22,7 @@ import {
   tariffTableSortIndicator,
   type TariffTableSortDir,
   type TariffTableSortKey,
+  type TariffQualichargeCoverage,
 } from '../lib/tariffDisplay'
 import {
   activeTariffPowerRangesForStations,
@@ -29,6 +33,14 @@ import {
   formatOperatorDirectPriceForRange,
   type TariffPowerRange,
 } from '../lib/tariffPowerRanges'
+import {
+  computeTariffCoverageSummary,
+  computeTariffFicheCoverageByTariff,
+  formatPdcCoverageCell,
+  formatPdcCoverageTitle,
+  formatTariffCoveragePercent,
+  type TariffFicheCoverage,
+} from '../lib/tariffCoverage'
 import type { Station } from '../types/irve'
 import type { Theme } from '../lib/theme'
 import { MAP_PATH, navigate } from '../lib/routes'
@@ -39,6 +51,7 @@ import { FeedbackForm } from './FeedbackForm'
 import { FeedbackFab } from './FeedbackFab'
 import '../App.css'
 import '../Tariffs.css'
+import '../TariffCoverage.css'
 
 interface TariffsPageProps {
   theme: Theme
@@ -87,6 +100,8 @@ function TariffMatrixTable({
   activeRanges,
   stationCounts,
   stationsCoveredTotal,
+  ficheCoverageByTariff,
+  globalCoverage,
   sortKey,
   sortDir,
   onSort,
@@ -96,6 +111,8 @@ function TariffMatrixTable({
   activeRanges: readonly TariffPowerRange[]
   stationCounts: ReadonlyMap<string, number>
   stationsCoveredTotal: number
+  ficheCoverageByTariff: ReadonlyMap<string, TariffFicheCoverage>
+  globalCoverage: ReturnType<typeof computeTariffCoverageSummary>
   sortKey: TariffTableSortKey
   sortDir: TariffTableSortDir
   onSort: (key: TariffTableSortKey) => void
@@ -119,6 +136,12 @@ function TariffMatrixTable({
               sortDir={sortDir}
               onSort={onSort}
             />
+            <th scope="col" className="tariff-matrix-table__coverage-head" title="Part des PDC avec tarif QualiCharge API">
+              API
+            </th>
+            <th scope="col" className="tariff-matrix-table__coverage-head" title="Part des PDC avec un prix affichable (API ou éditorial)">
+              Affichable
+            </th>
             {activeRanges.map((range) => (
               <SortableHeader
                 key={range.id}
@@ -142,6 +165,18 @@ function TariffMatrixTable({
             <td className="tariff-matrix-table__stations tariff-matrix-table__avg">
               {STATION_COUNT_FMT.format(stationsCoveredTotal)}
             </td>
+            <td className="tariff-matrix-table__coverage tariff-matrix-table__coverage--qc tariff-matrix-table__avg">
+              {formatTariffCoveragePercent(
+                globalCoverage.qualicharge.pdc,
+                globalCoverage.totalPdc,
+              )}
+            </td>
+            <td className="tariff-matrix-table__coverage tariff-matrix-table__coverage--displayable tariff-matrix-table__avg">
+              {formatTariffCoveragePercent(
+                globalCoverage.displayable.pdc,
+                globalCoverage.totalPdc,
+              )}
+            </td>
             {activeRanges.map((range) => {
               const avg = weightedByRange.find((a) => a.rangeId === range.id)
               return (
@@ -164,6 +199,55 @@ function TariffMatrixTable({
               <td className="tariff-matrix-table__stations">
                 {STATION_COUNT_FMT.format(stationCounts.get(tariff.id) ?? 0)}
               </td>
+              {(() => {
+                const coverage = ficheCoverageByTariff.get(tariff.id)
+                const qcLabel = coverage
+                  ? formatPdcCoverageCell(coverage.qualichargePdc, coverage.totalPdc)
+                  : null
+                const displayLabel = coverage
+                  ? formatPdcCoverageCell(coverage.displayablePdc, coverage.totalPdc)
+                  : null
+                return (
+                  <>
+                    <td
+                      className={
+                        qcLabel
+                          ? 'tariff-matrix-table__coverage tariff-matrix-table__coverage--qc'
+                          : 'tariff-matrix-table__coverage--na'
+                      }
+                      title={
+                        coverage && qcLabel
+                          ? formatPdcCoverageTitle(
+                              'QualiCharge API',
+                              coverage.qualichargePdc,
+                              coverage.totalPdc,
+                            )
+                          : undefined
+                      }
+                    >
+                      {qcLabel ?? '—'}
+                    </td>
+                    <td
+                      className={
+                        displayLabel
+                          ? 'tariff-matrix-table__coverage tariff-matrix-table__coverage--displayable'
+                          : 'tariff-matrix-table__coverage--na'
+                      }
+                      title={
+                        coverage && displayLabel
+                          ? formatPdcCoverageTitle(
+                              'Prix affichable',
+                              coverage.displayablePdc,
+                              coverage.totalPdc,
+                            )
+                          : undefined
+                      }
+                    >
+                      {displayLabel ?? '—'}
+                    </td>
+                  </>
+                )
+              })()}
               {activeRanges.map((range) => {
                 const priceLabel = formatOperatorDirectPriceForRange(tariff, range)
                 return (
@@ -180,11 +264,30 @@ function TariffMatrixTable({
                 )
               })}
               <td>
-                <span
-                  className={`tariff-badge tariff-badge--model tariff-badge--model-${tariff.pricingModel}`}
-                >
-                  {PRICING_MODEL_LABELS[tariff.pricingModel]}
-                </span>
+                <div className="tariff-matrix-table__model">
+                  <span
+                    className={`tariff-badge tariff-badge--model tariff-badge--model-${tariff.pricingModel}`}
+                  >
+                    {PRICING_MODEL_LABELS[tariff.pricingModel]}
+                  </span>
+                  {(() => {
+                    const coverage = ficheCoverageByTariff.get(tariff.id)
+                    if (!coverage || coverage.totalPdc <= 0) return null
+                    if (coverage.qualichargePdc / coverage.totalPdc < 0.5) return null
+                    return (
+                      <span
+                        className="tariff-badge tariff-badge--qualicharge"
+                        title={formatPdcCoverageTitle(
+                          'QualiCharge API',
+                          coverage.qualichargePdc,
+                          coverage.totalPdc,
+                        )}
+                      >
+                        API ≥ 50 %
+                      </span>
+                    )
+                  })()}
+                </div>
               </td>
             </tr>
           ))}
@@ -194,16 +297,32 @@ function TariffMatrixTable({
   )
 }
 
-function TariffCard({ tariff }: { tariff: OperatorTariff }) {
+function TariffCard({
+  tariff,
+  qualichargeCoverage,
+}: {
+  tariff: OperatorTariff
+  qualichargeCoverage?: TariffQualichargeCoverage | null
+}) {
   const directTiers = tariff.tiers.filter((t) => t.access === 'direct')
   const subscriberTiers = tariff.tiers.filter((t) => t.access === 'subscriber')
   const showPrices = tariffHasDisplayablePrice(tariff)
+  const showQualichargeBadge =
+    qualichargeCoverage != null && qualichargeCoverage.pricedPdc > 0
 
   return (
     <article className="tariff-card" id={`tariff-${tariff.id}`}>
       <header className="tariff-card__header">
         <div className="tariff-card__title-row">
           <h3 className="tariff-card__title">{tariff.label}</h3>
+          {showQualichargeBadge && (
+            <span
+              className="tariff-badge tariff-badge--qualicharge"
+              title={formatQualichargePdcCoverageTitle(qualichargeCoverage)}
+            >
+              QualiCharge · {formatQualichargePdcCoveragePct(qualichargeCoverage)} % PDC
+            </span>
+          )}
           <span
             className={`tariff-badge tariff-badge--model tariff-badge--model-${tariff.pricingModel}`}
           >
@@ -320,10 +439,17 @@ export function TariffsPage({ theme, onToggleTheme, stations, loading = false }:
   const boxPlotsByRange = useMemo(() => computeTariffRangeBoxPlots(stations), [stations])
   const activeRanges = useMemo(() => activeTariffPowerRangesForStations(stations), [stations])
 
-  const qualichargeOperatorCount = useMemo(() => {
-    const names = new Set(stations.map((s) => s.nom_operateur).filter(Boolean))
-    return names.size
-  }, [stations])
+  const tariffCoverageSummary = useMemo(() => computeTariffCoverageSummary(stations), [stations])
+
+  const ficheCoverageByTariff = useMemo(
+    () => computeTariffFicheCoverageByTariff(stations, OPERATOR_TARIFFS),
+    [stations],
+  )
+
+  const qualichargeCoverageByTariff = useMemo(
+    () => computeQualichargePdcCoverageByTariff(stations, OPERATOR_TARIFFS),
+    [stations],
+  )
 
   const stationCountsByTariff = useMemo(
     () => computeStationCountsByTariff(stations, OPERATOR_TARIFFS),
@@ -438,12 +564,27 @@ export function TariffsPage({ theme, onToggleTheme, stations, loading = false }:
             <h2>Tarifs par opérateur</h2>
             <p>
               Grilles de référence éditoriales jointes aux stations sur{' '}
-              <code>nom_operateur</code> (QualiCharge). Données à revérifier sur la
+              <code>nom_operateur</code>, complétées au fil de l’eau par les tarifs QualiCharge
+              renseignés borne par borne quand l’API les fournit. Données à revérifier sur la
               source avant toute décision.
             </p>
             <p className="tariffs-page__coverage">
-              <strong>{OPERATOR_TARIFFS.length}</strong> fiches ·{' '}
-              <strong>{qualichargeOperatorCount}</strong> libellés <code>nom_operateur</code> ·            </p>
+              <strong>{OPERATOR_TARIFFS.length}</strong> fiches éditoriales · réseau :{' '}
+              <strong>
+                {formatTariffCoveragePercent(
+                  tariffCoverageSummary.qualicharge.pdc,
+                  tariffCoverageSummary.totalPdc,
+                )}
+              </strong>{' '}
+              API QualiCharge ·{' '}
+              <strong>
+                {formatTariffCoveragePercent(
+                  tariffCoverageSummary.displayable.pdc,
+                  tariffCoverageSummary.totalPdc,
+                )}
+              </strong>{' '}
+              prix affichable (PDC)
+            </p>
           </div>
         </header>
 
@@ -534,6 +675,8 @@ export function TariffsPage({ theme, onToggleTheme, stations, loading = false }:
             activeRanges={activeRanges}
             stationCounts={stationCountsByTariff}
             stationsCoveredTotal={matrixStationsCovered}
+            ficheCoverageByTariff={ficheCoverageByTariff}
+            globalCoverage={tariffCoverageSummary}
             sortKey={effectiveSortKey}
             sortDir={tableSortDir}
             onSort={handleTableSort}
@@ -544,7 +687,11 @@ export function TariffsPage({ theme, onToggleTheme, stations, loading = false }:
         {filtered.length === 0 ? null : (
           <div className="tariffs-list">
             {filtered.map((tariff) => (
-              <TariffCard key={tariff.id} tariff={tariff} />
+              <TariffCard
+                key={tariff.id}
+                tariff={tariff}
+                qualichargeCoverage={qualichargeCoverageByTariff.get(tariff.id)}
+              />
             ))}
           </div>
         )}
