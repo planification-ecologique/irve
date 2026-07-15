@@ -108,23 +108,37 @@ const STATION_LAYER_IDS = new Set([
   'unclustered-point-glow',
 ])
 
+const ROUTE_LAYER_IDS = new Set([
+  'route-line-glow',
+  'route-line',
+  'route-endpoints',
+  'route-highlight-glow',
+  'route-highlight-point',
+])
+
 /** Conserve source + calques stations lors d'un swap de fond de carte. */
 export function preserveStationStyle(
   previousStyle: StyleSpecification | undefined,
   nextStyle: StyleSpecification,
 ): StyleSpecification {
   const stationsSource = previousStyle?.sources?.stations
-  if (!stationsSource) return nextStyle
+  const routeSource = previousStyle?.sources?.route
+  const routeHighlightSource = previousStyle?.sources?.['route-highlight']
+  if (!stationsSource && !routeSource && !routeHighlightSource) return nextStyle
 
-  const stationLayers = previousStyle.layers.filter((layer) => STATION_LAYER_IDS.has(layer.id))
+  const preservedLayers = previousStyle.layers.filter(
+    (layer) => STATION_LAYER_IDS.has(layer.id) || ROUTE_LAYER_IDS.has(layer.id),
+  )
 
   return {
     ...nextStyle,
     sources: {
       ...nextStyle.sources,
-      stations: stationsSource,
+      ...(stationsSource ? { stations: stationsSource } : {}),
+      ...(routeSource ? { route: routeSource } : {}),
+      ...(routeHighlightSource ? { 'route-highlight': routeHighlightSource } : {}),
     },
-    layers: [...nextStyle.layers, ...stationLayers],
+    layers: [...nextStyle.layers, ...preservedLayers],
   }
 }
 
@@ -157,6 +171,17 @@ function usesEnglishName(value: string): boolean {
   return value === '{name_en}' || value === 'name_en' || value.includes('{name_en}')
 }
 
+/** Zoom/function stops only accept format strings — not expression arrays. */
+function toFrenchNameStopValue(value: unknown): unknown {
+  if (typeof value === 'string' && usesEnglishName(value)) {
+    return '{name:fr}'
+  }
+  if (Array.isArray(value) && value[0] === 'coalesce') {
+    return '{name:fr}'
+  }
+  return value
+}
+
 export function toFrenchNameField(value: unknown): unknown {
   if (typeof value === 'string') {
     if (usesEnglishName(value)) {
@@ -180,7 +205,7 @@ export function toFrenchNameField(value: unknown): unknown {
         ...record,
         stops: record.stops.map((stop) => {
           if (!Array.isArray(stop)) return stop
-          return [stop[0], toFrenchNameField(stop[1])]
+          return [stop[0], toFrenchNameStopValue(stop[1])]
         }),
       }
     }

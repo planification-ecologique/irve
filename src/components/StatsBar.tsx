@@ -193,7 +193,7 @@ export function StatsBar({
       </div>
 
       <div className="stats-bar__actions">
-        <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+        <ThemeToggle theme={theme} onToggle={onToggleTheme} className="stats-bar__theme-toggle" />
 
         <div className="stats-bar__updated">
           {dataSource === 'live' || dataSource === 'mixed' ? (

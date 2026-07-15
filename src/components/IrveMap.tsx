@@ -18,10 +18,18 @@ import { clusterProperties, mixedClusterColor, mixedClusterOpacity, mixedPointCo
 import { formatMaxPowerKw } from '../lib/formatPower'
 import { getPowerBadgeClass } from '../lib/power'
 import { getAvailabilityTone } from '../lib/stationDisplay'
+import { interpolateRoutePointAtKm } from '../lib/tripGeo'
 
 const FRANCE_CENTER: [number, number] = [2.5, 46.6]
 const FRANCE_ZOOM = 5.2
 
+export interface RouteOverlay {
+  coordinates: [number, number][]
+  endpoints: {
+    from: { lng: number; lat: number; label: string }
+    to: { lng: number; lat: number; label: string }
+  }
+}
 /** Délai au-delà duquel, sans tuile de fond chargée, on bascule sur l'IGN. */
 const BASEMAP_FALLBACK_TIMEOUT_MS = 8000
 
@@ -30,15 +38,212 @@ interface IrveMapProps {
   selectedKey: string | null
   onSelect: (station: Station | null) => void
   theme: Theme
+  routeOverlay?: RouteOverlay | null
+  /** Position le long de la route (km) — marqueur chart ↔ carte. */
+  routeHighlightKm?: number | null
+  disableCluster?: boolean
 }
 
-function addStationLayers(map: Map, stations: Station[]) {
+function routeToGeoJSON(overlay: RouteOverlay) {
+  return {
+    type: 'FeatureCollection' as const,
+    features: [
+      {
+        type: 'Feature' as const,
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: overlay.coordinates,
+        },
+        properties: {},
+      },
+      {
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Point' as const,
+          coordinates: [overlay.endpoints.from.lng, overlay.endpoints.from.lat],
+        },
+        properties: { role: 'from', label: overlay.endpoints.from.label },
+      },
+      {
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Point' as const,
+          coordinates: [overlay.endpoints.to.lng, overlay.endpoints.to.lat],
+        },
+        properties: { role: 'to', label: overlay.endpoints.to.label },
+      },
+    ],
+  }
+}
+
+function addRouteLayers(map: Map, overlay: RouteOverlay) {
+  if (map.getSource('route')) return
+
+  map.addSource('route', {
+    type: 'geojson',
+    data: routeToGeoJSON(overlay),
+  })
+
+  map.addLayer({
+    id: 'route-line-glow',
+    type: 'line',
+    source: 'route',
+    filter: ['==', ['geometry-type'], 'LineString'],
+    paint: {
+      'line-color': '#000091',
+      'line-width': 8,
+      'line-opacity': 0.15,
+      'line-blur': 2,
+    },
+  })
+
+  map.addLayer({
+    id: 'route-line',
+    type: 'line',
+    source: 'route',
+    filter: ['==', ['geometry-type'], 'LineString'],
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
+    paint: {
+      'line-color': '#000091',
+      'line-width': 4,
+      'line-opacity': 0.85,
+    },
+  })
+
+  map.addLayer({
+    id: 'route-endpoints',
+    type: 'circle',
+    source: 'route',
+    filter: ['==', ['geometry-type'], 'Point'],
+    paint: {
+      'circle-color': [
+        'match',
+        ['get', 'role'],
+        'from',
+        '#22c55e',
+        'to',
+        '#ef4444',
+        '#000091',
+      ],
+      'circle-radius': 7,
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 2,
+    },
+  })
+}
+
+function syncRouteOverlay(map: Map, overlay: RouteOverlay | null | undefined) {
+  const source = map.getSource('route') as GeoJSONSource | undefined
+
+  if (!overlay) {
+    if (source) {
+      ;['route-endpoints', 'route-line', 'route-line-glow'].forEach((layerId) => {
+        if (map.getLayer(layerId)) map.removeLayer(layerId)
+      })
+      map.removeSource('route')
+    }
+    return
+  }
+
+  if (source) {
+    source.setData(routeToGeoJSON(overlay))
+    return
+  }
+
+  addRouteLayers(map, overlay)
+}
+
+function syncRouteHighlight(
+  map: Map,
+  overlay: RouteOverlay | null | undefined,
+  km: number | null | undefined,
+) {
+  const empty = {
+    type: 'FeatureCollection' as const,
+    features: [],
+  }
+
+  const source = map.getSource('route-highlight') as GeoJSONSource | undefined
+
+  if (!overlay || km == null) {
+    source?.setData(empty)
+    return
+  }
+
+  const point = interpolateRoutePointAtKm(overlay.coordinates, km)
+  if (!point) {
+    source?.setData(empty)
+    return
+  }
+
+  const data = {
+    type: 'FeatureCollection' as const,
+    features: [
+      {
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Point' as const,
+          coordinates: point,
+        },
+        properties: { km },
+      },
+    ],
+  }
+
+  if (source) {
+    source.setData(data)
+    return
+  }
+
+  map.addSource('route-highlight', {
+    type: 'geojson',
+    data,
+  })
+
+  map.addLayer({
+    id: 'route-highlight-glow',
+    type: 'circle',
+    source: 'route-highlight',
+    paint: {
+      'circle-color': '#f59e0b',
+      'circle-radius': 14,
+      'circle-opacity': 0.28,
+      'circle-blur': 0.35,
+    },
+  })
+
+  map.addLayer({
+    id: 'route-highlight-point',
+    type: 'circle',
+    source: 'route-highlight',
+    paint: {
+      'circle-color': '#f59e0b',
+      'circle-radius': 7,
+      'circle-stroke-color': '#ffffff',
+      'circle-stroke-width': 2,
+      'circle-opacity': 0.95,
+    },
+  })
+}
+
+function fitRouteBounds(map: Map, overlay: RouteOverlay) {
+  const bounds = new maplibregl.LngLatBounds()
+  for (const [lng, lat] of overlay.coordinates) {
+    bounds.extend([lng, lat])
+  }
+  map.fitBounds(bounds, { padding: 72, maxZoom: 10, duration: 800 })
+}
+
+function addStationLayers(map: Map, stations: Station[], disableCluster: boolean) {
   if (map.getSource('stations')) return
 
   map.addSource('stations', {
     type: 'geojson',
     data: stationsToGeoJSON(stations),
-    cluster: true,
+    cluster: !disableCluster,
     clusterMaxZoom: 13,
     clusterRadius: 50,
     clusterProperties,
@@ -154,16 +359,23 @@ function addStationLayers(map: Map, stations: Station[]) {
   })
 }
 
-function setupMapStyle(map: Map, stations: Station[]) {
+function setupMapStyle(
+  map: Map,
+  stations: Station[],
+  disableCluster: boolean,
+  routeOverlay?: RouteOverlay | null,
+) {
   applyFrenchLabels(map)
 
   const source = map.getSource('stations') as GeoJSONSource | undefined
   if (source) {
     source.setData(stationsToGeoJSON(stations))
+    syncRouteOverlay(map, routeOverlay)
     return
   }
 
-  addStationLayers(map, stations)
+  addStationLayers(map, stations, disableCluster)
+  syncRouteOverlay(map, routeOverlay)
 }
 
 type StyleLoadListener = () => void
@@ -190,18 +402,32 @@ function escapeHtml(value: string): string {
     .replaceAll('"', '&quot;')
 }
 
-export function IrveMap({ stations, selectedKey, onSelect, theme }: IrveMapProps) {
+export function IrveMap({
+  stations,
+  selectedKey,
+  onSelect,
+  theme,
+  routeOverlay = null,
+  routeHighlightKm = null,
+  disableCluster = false,
+}: IrveMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<Map | null>(null)
   const themeRef = useRef(theme)
   const stationsRef = useRef(stations)
   const selectedKeyRef = useRef(selectedKey)
+  const routeOverlayRef = useRef(routeOverlay)
+  const routeHighlightKmRef = useRef(routeHighlightKm)
+  const disableClusterRef = useRef(disableCluster)
   const popupRef = useRef<maplibregl.Popup | null>(null)
   const hoveredKeyRef = useRef<string | null>(null)
   const fallbackActiveRef = useRef(isBasemapFallbackPreferred())
 
   stationsRef.current = stations
   selectedKeyRef.current = selectedKey
+  routeOverlayRef.current = routeOverlay
+  routeHighlightKmRef.current = routeHighlightKm
+  disableClusterRef.current = disableCluster
 
   const findStation = useCallback((key: string) => {
     return stationsRef.current.find((station) => station.station_key === key) ?? null
@@ -286,7 +512,13 @@ export function IrveMap({ stations, selectedKey, onSelect, theme }: IrveMapProps
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left')
 
     const syncStationLayers = () => {
-      setupMapStyle(map, stationsRef.current)
+      setupMapStyle(
+        map,
+        stationsRef.current,
+        disableClusterRef.current,
+        routeOverlayRef.current,
+      )
+      syncRouteHighlight(map, routeOverlayRef.current, routeHighlightKmRef.current)
     }
     const detachStyleLoad = onStyleLoad(map, syncStationLayers)
 
@@ -442,17 +674,40 @@ export function IrveMap({ stations, selectedKey, onSelect, theme }: IrveMapProps
     const map = mapRef.current
     if (!map) return
 
+    const apply = () => {
+      setupMapStyle(map, stations, disableCluster, routeOverlay)
+    }
+
     const source = map.getSource('stations') as GeoJSONSource | undefined
     if (source) {
-      source.setData(stationsToGeoJSON(stations))
+      apply()
       return
     }
 
-    return onceStyleLoad(map, () => {
-      const loadedSource = map.getSource('stations') as GeoJSONSource | undefined
-      loadedSource?.setData(stationsToGeoJSON(stations))
-    })
-  }, [stations])
+    return onceStyleLoad(map, apply)
+  }, [stations, disableCluster, routeOverlay])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    const apply = () => {
+      syncRouteHighlight(map, routeOverlay, routeHighlightKm)
+    }
+
+    if (map.getSource('route-highlight') || map.getSource('route') || map.getSource('stations')) {
+      apply()
+      return
+    }
+
+    return onceStyleLoad(map, apply)
+  }, [routeHighlightKm, routeOverlay])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !routeOverlay) return
+    fitRouteBounds(map, routeOverlay)
+  }, [routeOverlay])
 
   useEffect(() => {
     hideHoverPopup()

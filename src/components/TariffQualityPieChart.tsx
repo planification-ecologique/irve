@@ -13,26 +13,34 @@ const PCT_FMT = new Intl.NumberFormat('fr-FR', {
 })
 
 const QUALITY_COLORS: Record<StationTariffDataQuality, string> = {
+  qualicharge: '#3b82f6',
   reliable: '#10b981',
   approximate: '#f59e0b',
   missing: '#94a3b8',
 }
 
-const QUALITY_ORDER: StationTariffDataQuality[] = ['reliable', 'approximate', 'missing']
+const QUALITY_ORDER: StationTariffDataQuality[] = [
+  'qualicharge',
+  'reliable',
+  'approximate',
+  'missing',
+]
 
 function pct(part: number, total: number): number {
   return total > 0 ? (part / total) * 100 : 0
 }
 
 function conicGradient(breakdown: StationTariffQualityBreakdown): string {
-  const { total, reliable, approximate } = breakdown
+  const { total, qualicharge, reliable, approximate } = breakdown
   if (total === 0) return 'conic-gradient(#94a3b8 0 100%)'
 
-  const rEnd = pct(reliable, total)
+  const qEnd = pct(qualicharge, total)
+  const rEnd = qEnd + pct(reliable, total)
   const aEnd = rEnd + pct(approximate, total)
 
   return `conic-gradient(
-    ${QUALITY_COLORS.reliable} 0% ${rEnd}%,
+    ${QUALITY_COLORS.qualicharge} 0% ${qEnd}%,
+    ${QUALITY_COLORS.reliable} ${qEnd}% ${rEnd}%,
     ${QUALITY_COLORS.approximate} ${rEnd}% ${aEnd}%,
     ${QUALITY_COLORS.missing} ${aEnd}% 100%
   )`
@@ -75,8 +83,9 @@ export function TariffQualityPieChart({ stations, loading = false }: TariffQuali
         Qualité des données tarifaires
       </h3>
       <p className="tariffs-quality__hint">
-        Par station QualiCharge · fiable = grille fixe haute confiance · approx. = fourchette ou
-        confiance moyenne · manquant = pas de €/kWh affichable.
+        Par station · QualiCharge = tarif API borne par borne · fiable = grille nationale fixe
+        (relevé éditorial) · approx. = fourchette ou confiance moyenne · manquant = pas de €/kWh
+        affichable.
       </p>
 
       <div className="tariffs-quality__body">

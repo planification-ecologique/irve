@@ -4,7 +4,9 @@ import {
   classifyStationTariffQuality,
   compareTariffsByBestDirectPrice,
   compareTariffsForTableSort,
+  computeQualichargePdcCoverageByTariff,
   computeStationTariffQualityBreakdown,
+  formatQualichargePdcCoveragePct,
   formatTariffTierPrice,
   getBestDirectKwhPrice,
   nextTariffTableSort,
@@ -357,29 +359,125 @@ describe('stationMatchesMaxPriceFilter', () => {
   })
 })
 
+describe('computeQualichargePdcCoverageByTariff', () => {
+  it('pondère par pdc_count sur les noms QualiCharge matchés', () => {
+    const stations = [
+      {
+        nom_operateur: 'Lidl France',
+        pdc_count: 10,
+        summary: { price_per_kwh: 0.29 },
+      },
+      {
+        nom_operateur: 'Lidl France',
+        pdc_count: 5,
+        summary: { price_per_kwh: null, pricing_value: null },
+      },
+      {
+        nom_operateur: 'DRIVECO',
+        pdc_count: 8,
+        summary: { price_per_kwh: 0.45 },
+      },
+    ] as Station[]
+
+    const map = computeQualichargePdcCoverageByTariff(stations, [
+      { id: 'lidl', match: ['Lidl France'] },
+      { id: 'driveco', match: ['DRIVECO'] },
+    ])
+
+    expect(map.get('lidl')).toEqual({ pricedPdc: 10, totalPdc: 15 })
+    expect(map.get('driveco')).toEqual({ pricedPdc: 8, totalPdc: 8 })
+    expect(formatQualichargePdcCoveragePct(map.get('lidl')!)).toBe('67')
+    expect(formatQualichargePdcCoveragePct(map.get('driveco')!)).toBe('100')
+  })
+})
+
 describe('classifyStationTariffQuality', () => {
+  const baseSummary = {
+    max_power: 150,
+    total_power: 150,
+    has_prise_type_ef: false,
+    has_prise_type_2: false,
+    has_prise_type_combo_ccs: true,
+    has_prise_type_chademo: false,
+    has_prise_type_autre: false,
+    price_per_kwh: null,
+    pricing_value: null,
+    pricing_dimension: null,
+    pricing_unit: null,
+    pricing_status: 'UNKNOWN',
+    pricing_headline: null,
+    applicable_tariff_count: 0,
+  } as const
+
+  it('tarif QualiCharge → qualicharge', () => {
+    expect(
+      classifyStationTariffQuality({
+        nom_operateur: 'DRIVECO',
+        summary: { ...baseSummary, price_per_kwh: 0.45, pricing_status: 'STANDARD' },
+      }),
+    ).toBe('qualicharge')
+  })
+
   it('grille fixe haute confiance → fiable', () => {
-    expect(classifyStationTariffQuality('NW IECharge')).toBe('reliable')
+    expect(
+      classifyStationTariffQuality({
+        nom_operateur: 'NW IECharge',
+        summary: baseSummary,
+      }),
+    ).toBe('reliable')
   })
 
   it('fourchette nationale → approximative', () => {
-    expect(classifyStationTariffQuality('Tesla')).toBe('approximate')
+    expect(
+      classifyStationTariffQuality({
+        nom_operateur: 'Tesla',
+        summary: baseSummary,
+      }),
+    ).toBe('approximate')
   })
 
   it('sans grille affichable → manquante', () => {
-    expect(classifyStationTariffQuality('DRIVECO')).toBe('missing')
+    expect(
+      classifyStationTariffQuality({
+        nom_operateur: 'DRIVECO',
+        summary: baseSummary,
+      }),
+    ).toBe('missing')
   })
 })
 
 describe('computeStationTariffQualityBreakdown', () => {
-  it('somme les trois catégories', () => {
+  const baseSummary = {
+    max_power: 150,
+    total_power: 150,
+    has_prise_type_ef: false,
+    has_prise_type_2: false,
+    has_prise_type_combo_ccs: true,
+    has_prise_type_chademo: false,
+    has_prise_type_autre: false,
+    price_per_kwh: null,
+    pricing_value: null,
+    pricing_dimension: null,
+    pricing_unit: null,
+    pricing_status: 'UNKNOWN',
+    pricing_headline: null,
+    applicable_tariff_count: 0,
+  } as const
+
+  it('somme les quatre catégories', () => {
     const stations = [
-      { nom_operateur: 'NW IECharge', pdc_count: 1 },
-      { nom_operateur: 'Tesla', pdc_count: 1 },
-      { nom_operateur: 'DRIVECO', pdc_count: 1 },
+      {
+        nom_operateur: 'Atlante France',
+        pdc_count: 1,
+        summary: { ...baseSummary, price_per_kwh: 0.59 },
+      },
+      { nom_operateur: 'NW IECharge', pdc_count: 1, summary: baseSummary },
+      { nom_operateur: 'Tesla', pdc_count: 1, summary: baseSummary },
+      { nom_operateur: 'DRIVECO', pdc_count: 1, summary: baseSummary },
     ] as Station[]
     const b = computeStationTariffQualityBreakdown(stations)
-    expect(b.total).toBe(3)
+    expect(b.total).toBe(4)
+    expect(b.qualicharge).toBe(1)
     expect(b.reliable + b.approximate + b.missing).toBe(3)
   })
 })

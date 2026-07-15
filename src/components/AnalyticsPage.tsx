@@ -30,9 +30,12 @@ import type { Theme } from '../lib/theme'
 import type { Station } from '../types/irve'
 import { ConnectorIcon, type ConnectorIconType } from './ConnectorIcon'
 import { PowerDistributionChart } from './PowerDistributionChart'
+import { TariffCoverageOperators } from './TariffCoverageOperators'
 import { StatsBar } from './StatsBar'
+import { computeTariffCoverageSummary, formatTariffCoveragePercent } from '../lib/tariffCoverage'
 import '../App.css'
 import '../Analytics.css'
+import '../TariffCoverage.css'
 
 interface AnalyticsPageProps {
   liveStations: Station[]
@@ -204,6 +207,8 @@ export function AnalyticsPage({
   const loading = liveLoading && liveStations.length === 0
 
   const analytics = useMemo(() => computeIrveAnalytics(stations), [stations])
+
+  const tariffCoverage = useMemo(() => computeTariffCoverageSummary(stations), [stations])
 
   const contactByKey = useStationContactCache(true)
 
@@ -427,12 +432,26 @@ export function AnalyticsPage({
             <span className="analytics-kpi__label">Stations ≥ 100 kW</span>
           </article>
           <article className="analytics-kpi">
+            <span className="analytics-kpi__value analytics-kpi__value--accent">
+              {loading
+                ? '…'
+                : formatTariffCoveragePercent(
+                    tariffCoverage.qualicharge.stations,
+                    tariffCoverage.totalStations,
+                  )}
+            </span>
+            <span className="analytics-kpi__label">Tarif QualiCharge</span>
+          </article>
+          <article className="analytics-kpi">
             <span className="analytics-kpi__value">
               {loading
                 ? '…'
-                : formatAnalyticsPercent(analytics.withTarification, analytics.totalStations)}
+                : formatTariffCoveragePercent(
+                    tariffCoverage.displayable.stations,
+                    tariffCoverage.totalStations,
+                  )}
             </span>
-            <span className="analytics-kpi__label">Tarification</span>
+            <span className="analytics-kpi__label">Prix affichable</span>
           </article>
         </section>
 
@@ -646,12 +665,29 @@ export function AnalyticsPage({
                 </span>
               </article>
               <article className="analytics-kpi analytics-kpi--compact">
-                <span className="analytics-kpi__value analytics-kpi__value--danger">
-                  {formatInt(analytics.withTarification, loading)}
+                <span className="analytics-kpi__value analytics-kpi__value--accent">
+                  {formatInt(tariffCoverage.qualicharge.stations, loading)}
                 </span>
-                <span className="analytics-kpi__label">Avec tarification</span>
+                <span className="analytics-kpi__label">Tarif QualiCharge</span>
                 <span className="analytics-kpi__pct">
-                  {formatAnalyticsPercent(analytics.withTarification, analytics.totalStations)}
+                  {formatTariffCoveragePercent(
+                    tariffCoverage.qualicharge.pdc,
+                    tariffCoverage.totalPdc,
+                  )}{' '}
+                  PDC
+                </span>
+              </article>
+              <article className="analytics-kpi analytics-kpi--compact">
+                <span className="analytics-kpi__value">
+                  {formatInt(tariffCoverage.displayable.stations, loading)}
+                </span>
+                <span className="analytics-kpi__label">Prix affichable</span>
+                <span className="analytics-kpi__pct">
+                  {formatTariffCoveragePercent(
+                    tariffCoverage.displayable.pdc,
+                    tariffCoverage.totalPdc,
+                  )}{' '}
+                  PDC
                 </span>
               </article>
               {contactCacheReady &&
@@ -674,6 +710,8 @@ export function AnalyticsPage({
                   )
                 })}
             </div>
+
+            <TariffCoverageOperators stations={stations} loading={loading} />
 
             {contactCacheReady && contactByKey === null && contactWarnings.length === 0 && (
               <p className="analytics-panel__hint">

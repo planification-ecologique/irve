@@ -4,9 +4,9 @@ import type { Station } from '../types/irve'
  * Grilles tarifaires publiques par opérateur (CPO).
  *
  * Pourquoi ce fichier ?
- * QualiCharge ne renseigne pas (encore) le prix borne par borne : tous les
- * champs `summary.pricing_*` sont aujourd'hui `null`. Or de nombreux opérateurs
- * appliquent un **tarif national fixe** (identique sur tout leur réseau). Pour
+ * QualiCharge renseigne progressivement le prix borne par borne via
+ * `summary.pricing_*` / `price_per_kwh`. Là où ces champs sont absents, de
+ * nombreux opérateurs appliquent un **tarif national fixe** (identique sur tout leur réseau). Pour
  * ces opérateurs, le prix ne dépend pas de la borne : on peut donc le maintenir
  * dans une petite table de référence éditoriale, jointe aux stations sur
  * `nom_operateur` au moment de l'affichage, sans attendre la donnée point par
