@@ -14,7 +14,11 @@ import type { Station } from '../types/irve'
  *
  * Provenance & fiabilité — À LIRE avant de se fier aux chiffres :
  * - Données collectées par recherche web en juin 2026, à partir des grilles
- *   publiques des opérateurs (et, à défaut, d'agrégateurs tiers).
+ *   publiques des opérateurs (et, à défaut, d'agrégateurs tiers). Les
+ *   principaux CPOs (par nombre de stations) ont été revérifiés en novembre
+ *   2026 (`CHECKED_AT_NOV_2026`) ; ce relevé s'appuie surtout sur des
+ *   comparateurs et la presse spécialisée, d'où une confiance `medium` quand
+ *   la grille officielle n'a pas pu être consultée directement.
  * - Ce sont des données ÉDITORIALES, pas une source live : elles doivent être
  *   datées (`checkedAt`), sourcées (`source`) et revérifiées régulièrement.
  * - `confidence` reflète la qualité du sourcing (high = grille officielle
@@ -84,6 +88,7 @@ export interface OperatorTariff {
 }
 
 const CHECKED_AT = '2026-06-03'
+const CHECKED_AT_NOV_2026 = '2026-11-09'
 
 export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
   // ─── Tarifs nationaux fixes ────────────────────────────────────────────────
@@ -92,15 +97,18 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
     label: 'Lidl France',
     match: ['Lidl France'],
     pricingModel: 'national-fixed',
-    directCbAvailable: null,
+    directCbAvailable: true,
     tiers: [
       { powerMinKw: 0, powerMaxKw: 22, value: 0.29, unit: '€/kWh', access: 'direct' },
       { powerMinKw: 22, powerMaxKw: null, value: 0.39, unit: '€/kWh', access: 'direct' },
+      { powerMinKw: 0, powerMaxKw: 22, value: 0.18, unit: '€/kWh', access: 'subscriber', label: 'appli Lidl Plus (gratuite)' },
+      { powerMinKw: 22, powerMaxKw: null, value: 0.29, unit: '€/kWh', access: 'subscriber', label: 'appli Lidl Plus (gratuite)' },
     ],
     source: 'https://www.lidl.fr/c/tarifs-bornes/s10027299',
-    checkedAt: CHECKED_AT,
+    checkedAt: CHECKED_AT_NOV_2026,
     confidence: 'high',
-    notes: 'Grille nationale unique. AC 0,29 / DC 0,39 €/kWh. Sans abonnement.',
+    notes:
+      'Grille nationale unique. CB sans contact : AC 0,29 / DC 0,39 €/kWh. Depuis le 18/09/2026, via l’appli gratuite Lidl Plus : AC 0,18 €/kWh (présenté comme prolongation exceptionnelle), DC 0,29 €/kWh.',
   },
   {
     id: 'allego',
@@ -112,12 +120,13 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
       { powerMinKw: 0, powerMaxKw: 22, value: 0.39, unit: '€/kWh', access: 'direct' },
       { powerMinKw: 22, powerMaxKw: 150, value: 0.49, unit: '€/kWh', access: 'direct' },
       { powerMinKw: 150, powerMaxKw: null, value: 0.59, unit: '€/kWh', access: 'direct' },
+      { powerMinKw: null, powerMaxKw: null, value: 0.39, unit: '€/kWh', access: 'subscriber', label: 'Allego Plus 9,99 €/mois' },
     ],
     source: 'https://www.allego.eu/pricing/',
-    checkedAt: CHECKED_AT,
-    confidence: 'high',
+    checkedAt: CHECKED_AT_NOV_2026,
+    confidence: 'medium',
     notes:
-      'Grille France (TTC, janv.–déc. 2025) : régulier 0,39 ; rapide 0,49 ; ultra-rapide 0,59 €/kWh. Surstationnement ~0,25 €/min après 45 min (1ʳᵉ h exemptée). CB sans contact.',
+      'Grille France sans abonnement : régulier 0,39 ; rapide 0,49 ; ultra-rapide 0,59 €/kWh (relevés sept.–oct. 2026). Certains sites hôtes plus chers (ex. Paris 0,56). Allego Plus 9,99 €/mois : 0,39 €/kWh. Cashback 0,20 €/kWh sur ~250 stations ultra-rapides jusqu’au 31/12/2026. Surstationnement ~0,25 €/min après 45 min. CB sans contact.',
   },
   {
     id: 'driveco',
@@ -136,14 +145,24 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
     id: 'electra',
     label: 'Electra',
     match: ['Electra'],
-    pricingModel: 'national-fixed',
+    pricingModel: 'national-range',
     directCbAvailable: true,
-    tiers: [{ powerMinKw: null, powerMaxKw: null, value: 0.49, unit: '€/kWh', access: 'direct' }],
-    source: 'https://www.go-electra.com/en/price/',
-    checkedAt: CHECKED_AT,
-    confidence: 'high',
+    tiers: [
+      {
+        powerMinKw: null,
+        powerMaxKw: null,
+        value: 0.39,
+        valueMax: 0.64,
+        unit: '€/kWh',
+        access: 'direct',
+        label: 'appli sans abonnement, selon affluence',
+      },
+    ],
+    source: 'https://www.tesla-mag.com/electra-hausse-prix-recharge-rapide-enquete/',
+    checkedAt: CHECKED_AT_NOV_2026,
+    confidence: 'medium',
     notes:
-      'Prix de base unifié 0,49 €/kWh (DC uniquement). Certaines stations très fréquentées appliquent un tarif horaire (0,39 creux / 0,61 pointe). Abonnement Boost : 0,29 €/kWh.',
+      'Hausse début nov. 2026 : sans abonnement via l’appli, 0,39–0,64 €/kWh selon l’affluence (0,39–0,61 en mai). CB / pass tiers : à partir de 0,64 €/kWh. Electra+ Essential 1,99 €/mois −0,10 €/kWh ; Smart 4,99 €/mois −0,20 €/kWh. DC uniquement.',
   },
   {
     id: 'evzen',
@@ -153,13 +172,13 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
     directCbAvailable: true,
     tiers: [
       { powerMinKw: 0, powerMaxKw: 22, value: 0.39, unit: '€/kWh', access: 'direct' },
-      { powerMinKw: 50, powerMaxKw: null, value: 0.49, unit: '€/kWh', access: 'direct' },
+      { powerMinKw: 50, powerMaxKw: null, value: 0.49, valueMax: 0.55, unit: '€/kWh', access: 'direct' },
     ],
     source: 'https://www.evzen.com/fr/recharger-mon-vehicule',
-    checkedAt: CHECKED_AT,
-    confidence: 'high',
+    checkedAt: CHECKED_AT_NOV_2026,
+    confidence: 'medium',
     notes:
-      'Grille nationale : accélérée 3–22 kW 0,39 €/kWh ; rapide/ultra >50 kW 0,49 €/kWh (peut varier par station). CB, badge ou appli. Pré-autorisation 50 €.',
+      'Grille nationale : accélérée 3–22 kW 0,39 €/kWh ; rapide/ultra >50 kW 0,49 €/kWh, jusqu’à 0,55 selon station. Réseaux de collectivités exploités par EVzen à tarif propre (ex. Simone, Alpilles : 0,52 €/kWh DC). CB, badge ou appli. Pré-autorisation 50 €.',
   },
   {
     id: 'totalenergies',
@@ -168,14 +187,14 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
     pricingModel: 'national-fixed',
     directCbAvailable: true,
     tiers: [
-      { powerMinKw: 22, powerMaxKw: 50, value: 0.52, unit: '€/kWh', access: 'direct' },
-      { powerMinKw: 50, powerMaxKw: null, value: 0.62, unit: '€/kWh', access: 'direct' },
+      { powerMinKw: 22, powerMaxKw: 50, value: 0.52, valueMax: 0.55, unit: '€/kWh', access: 'direct' },
+      { powerMinKw: 50, powerMaxKw: null, value: 0.62, valueMax: 0.65, unit: '€/kWh', access: 'direct' },
     ],
-    source: 'https://chargeplus.totalenergies.com/fr/conseils-recharge-electrique/cout-recharge-voiture-electrique/',
-    checkedAt: CHECKED_AT,
-    confidence: 'high',
+    source: 'https://tarif-recharge-electrique.fr/blog/tarif-recharge-electrique-totalenergies',
+    checkedAt: CHECKED_AT_NOV_2026,
+    confidence: 'medium',
     notes:
-      'Grille stations-service HPC (en vigueur 05/03/2025, confirmée Charge+) : 0,52 €/kWh ≤50 kW, 0,62 €/kWh >50 kW en CB directe. Carte Charge+ : 0,35 €/kWh sur bornes propres. Surstationnement +0,40 €/min après 45 min. Exceptions locales (ex. 7 relais à 0,50/0,60).',
+      'Grille stations-service HPC relevée le 06/10/2026 : 0,52–0,55 €/kWh ≤50 kW, 0,62–0,65 €/kWh >50 kW (grille de 03/2025 : 0,52 / 0,62). Carte Charge+ : ~0,35 €/kWh sur bornes propres. Surstationnement +0,40 €/min après 45 min. Grille officielle non consultée directement.',
   },
   {
     id: 'nw-iecharge',
@@ -184,11 +203,11 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
     pricingModel: 'national-fixed',
     directCbAvailable: true,
     tiers: [{ powerMinKw: null, powerMaxKw: null, value: 0.25, unit: '€/kWh', access: 'direct' }],
-    source: 'https://iecharge.io/',
-    checkedAt: CHECKED_AT,
+    source: 'https://iecharge.io/pricing/',
+    checkedAt: CHECKED_AT_NOV_2026,
     confidence: 'high',
     notes:
-      'Prix national unique 0,25 €/kWh (HPC, électricité renouvelable certifiée), sans palier de puissance. CB, appli ou badge.',
+      'Prix national unique 0,25 €/kWh tous moyens de paiement (HPC, électricité renouvelable certifiée), sans palier de puissance — confirmé oct. 2026.',
   },
   {
     id: 'r3',
@@ -200,11 +219,11 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
       { powerMinKw: 0, powerMaxKw: 22, value: 0.35, unit: '€/kWh', access: 'direct', label: 'bornes lentes' },
       { powerMinKw: 22, powerMaxKw: null, value: 0.55, unit: '€/kWh', access: 'direct', label: 'bornes rapides' },
     ],
-    source: 'https://www.dbt.fr/proprietaire-foncier/',
-    checkedAt: CHECKED_AT,
+    source: 'https://www.dbt.fr/r3/',
+    checkedAt: CHECKED_AT_NOV_2026,
     confidence: 'high',
     notes:
-      'Grille nationale 2026 : 0,55 €/kWh sur bornes rapides (≥150–180 kW), 0,35 €/kWh sur bornes lentes le cas échéant. CB, QR ou badge. (Ancien tarif 0,39 + 1 €/session obsolète.)',
+      'Grille nationale 2026 : 0,55 €/kWh sans abonnement sur bornes rapides (≥150–180 kW), 0,35 €/kWh sur bornes lentes le cas échéant. CB, QR ou badge. DBT a unifié ses activités sous la marque R3 (oct. 2026, lancement R3 Pro) ; ~200 sites visés fin 2026.',
   },
   {
     id: 'engie-vianeo',
@@ -212,12 +231,15 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
     match: ['ENGIE Vianeo'],
     pricingModel: 'national-fixed',
     directCbAvailable: true,
-    tiers: [{ powerMinKw: null, powerMaxKw: null, value: 0.6, unit: '€/kWh', access: 'direct' }],
-    source: 'https://www.engie-vianeo.com/tarifs-recharge-voiture-electrique/',
-    checkedAt: CHECKED_AT,
+    tiers: [
+      { powerMinKw: null, powerMaxKw: null, value: 0.6, unit: '€/kWh', access: 'direct' },
+      { powerMinKw: null, powerMaxKw: null, value: 0.33, unit: '€/kWh', access: 'subscriber', label: 'Vianeo Max 9,99 €/mois' },
+    ],
+    source: 'https://www.engie-vianeo.com/abonnement-recharge-voiture-electrique/',
+    checkedAt: CHECKED_AT_NOV_2026,
     confidence: 'high',
     notes:
-      'Page tarifs officielle : prix affichés totem/borne ; CB = tarif public (~0,60 €/kWh réseau standard). Appli −10 %. ~16 stations CERTAS à 0,69 €/kWh. Autoroutes ~0,57 €/kWh. Super Heures Creuses 22h–8h : 0,29 €/kWh (Vianeo+).',
+      'CB au terminal ~0,60 €/kWh, appli sans abonnement ~0,54 €/kWh ; autoroutes jusqu’à ~0,68. Abonnement Vianeo Max (lancé le 08/07/2026, 9,99 €/mois sans engagement) : 0,33 €/kWh sur toutes les bornes exploitées en propre. Offre Super Heures Creuses 0,29 €/kWh terminée le 31/08/2026.',
   },
   {
     id: 'atlante',
@@ -225,12 +247,15 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
     match: ['Atlante France'],
     pricingModel: 'national-fixed',
     directCbAvailable: true,
-    tiers: [{ powerMinKw: null, powerMaxKw: null, value: 0.29, unit: '€/kWh', access: 'direct' }],
-    source: 'https://atlante.energy/fr/myatlante-app/',
-    checkedAt: CHECKED_AT,
-    confidence: 'high',
+    tiers: [
+      { powerMinKw: null, powerMaxKw: null, value: 0.54, unit: '€/kWh', access: 'direct' },
+      { powerMinKw: null, powerMaxKw: null, value: 0.29, unit: '€/kWh', access: 'subscriber', label: 'Atlante Go 9,99 €/mois' },
+    ],
+    source: 'https://www.greenway.care/fr/bornes-recharge/atlante/',
+    checkedAt: CHECKED_AT_NOV_2026,
+    confidence: 'medium',
     notes:
-      '« 0,29 €/kWh partout en France » sur les bornes propres Atlante (via appli myAtlante ou abonnement Atlante Go). Réseaux partenaires à tarif différent.',
+      'Tarif public unique 0,54 €/kWh sur bornes Atlante (sans palier de puissance). Abonnement Atlante Go 9,99 €/mois (4,99 € à vie si souscrit avant le 31/12/2026) : 0,29 €/kWh sur stations Atlante. (Le « 0,29 € partout » précédemment saisi correspond au tarif abonné.)',
   },
   {
     id: 'plenitude',
@@ -244,10 +269,10 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
       { powerMinKw: 75, powerMaxKw: null, value: 0.55, unit: '€/kWh', access: 'direct' },
     ],
     source: 'https://www.eniplenitude.fr/mobilite-electrique/tarifs',
-    checkedAt: CHECKED_AT,
+    checkedAt: CHECKED_AT_NOV_2026,
     confidence: 'high',
     notes:
-      'Grille nationale France paiement à l’acte (bornes propres) : Quick AC ≤22 kW 0,45 €/kWh ; Fast DC ≤75 kW et Fast+/Ultra ≥75 kW 0,55 €/kWh. Surstationnement après 60 min : 0,12–0,30 €/min selon borne. Prises AC sur bornes DC facturées au tarif de la borne hôte.',
+      'Grille nationale France paiement à l’acte (bornes propres) : Quick AC ≤22 kW 0,45 €/kWh (0,61 après la 60ᵉ min) ; Fast DC ≤75 kW et Fast+/Ultra ≥75 kW 0,55 €/kWh (0,69 après la 60ᵉ min). Surstationnement après 60 min : 0,12–0,30 €/min selon borne. Code WINTER26 −40 % jusqu’au 30/11/2026. Prises AC sur bornes DC facturées au tarif de la borne hôte.',
   },
   {
     id: 'plug-inn',
@@ -261,10 +286,10 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
       { powerMinKw: null, powerMaxKw: null, value: 0.39, unit: '€/kWh', access: 'subscriber', label: 'INTENSE 5,99 €/mois' },
     ],
     source: 'https://www.renault.fr/solutions-de-recharge/plug-inn-fast-charge.html',
-    checkedAt: CHECKED_AT,
+    checkedAt: CHECKED_AT_NOV_2026,
     confidence: 'high',
     notes:
-      'Réseau ultra-rapide Renault Group (≤320 kW), prix national unique. CB au terminal 0,59 €/kWh, appli/pass 0,46, abonné 0,39. Stationnement 0,30 €/min après 1 h.',
+      'Réseau ultra-rapide Renault Group (≤320 kW, ex-Mobilize fast charge), prix national unique en vigueur au 05/05/2026. CB au terminal 0,59 €/kWh, appli/pass 0,46, abonné 0,39. Stationnement 0,30 €/min après 1 h.',
   },
   {
     id: 'fastned',
@@ -277,10 +302,10 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
       { powerMinKw: null, powerMaxKw: null, value: 0.41, unit: '€/kWh', access: 'subscriber', label: 'Gold 11,99 €/mois' },
     ],
     source: 'https://www.fastnedcharging.com/en/charging/tariffs',
-    checkedAt: CHECKED_AT,
+    checkedAt: CHECKED_AT_NOV_2026,
     confidence: 'high',
     notes:
-      'Prix unique €/kWh quelle que soit la puissance. Standard 0,61 €/kWh (hausse au 01/04/2026, ex-0,59). Appli : -10 %. CB partout, Autocharge en CCS.',
+      'Prix unique €/kWh quelle que soit la puissance (≤400 kW). Standard 0,61 €/kWh, Gold 0,41 €/kWh (en vigueur depuis le 01/04/2026, inchangés en nov. 2026). Appli : -10 %. CB partout, Autocharge en CCS.',
   },
   {
     id: 'dream-energy',
@@ -455,23 +480,23 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
     label: 'Power Dot France',
     match: ['Power Dot France'],
     pricingModel: 'national-range',
-    directCbAvailable: null,
+    directCbAvailable: true,
     tiers: [
       {
         powerMinKw: null,
         powerMaxKw: null,
-        value: 0.3,
-        valueMax: 0.53,
+        value: 0.39,
+        valueMax: 0.65,
         unit: '€/kWh',
         access: 'direct',
-        label: 'Plunge Pricing / tarif dynamique (2026)',
+        label: 'selon site et puissance (2026)',
       },
     ],
-    source: 'https://powerdot.eu/fr/',
-    checkedAt: CHECKED_AT,
-    confidence: 'high',
+    source: 'https://www.meilleurecharge.fr/operateur/power-dot',
+    checkedAt: CHECKED_AT_NOV_2026,
+    confidence: 'medium',
     notes:
-      'Tarification dynamique (Plunge Pricing avec Octopus, mars 2026) : fourchette indicative 0,30–0,53 €/kWh selon site, vitesse et créneaux (−20 à −50 %). Appli Powerdot / Electroverse avant session.',
+      'Prix par site : 0,39–0,49 €/kWh sur la majorité des stations (médiane ~0,44, oct. 2026) ; sites HPC récents 0,52 (75 kW), 0,59 (150 kW), 0,65 (300 kW). Tarification dynamique (Plunge Pricing avec Octopus) jusqu’à −20/−50 % en créneaux creux (~0,30). CB sans contact ou appli Powerdot / Electroverse.',
   },
   {
     id: 'izivia',
@@ -483,18 +508,18 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
       {
         powerMinKw: null,
         powerMaxKw: null,
-        value: 0.4,
+        value: 0.35,
         valueMax: 0.55,
         unit: '€/kWh',
         access: 'direct',
-        label: 'carte Izivia / appli (par station)',
+        label: 'sans abonnement (par station / collectivité)',
       },
     ],
-    source: 'https://izivia.com/blog/questions-frequentes/prix-recharge-bornes-electriques',
-    checkedAt: CHECKED_AT,
-    confidence: 'high',
+    source: 'https://www.meilleurecharge.fr/operateur/izivia',
+    checkedAt: CHECKED_AT_NOV_2026,
+    confidence: 'medium',
     notes:
-      'Prix par station sur carte Izivia / appli (fourchette observée ~0,40–0,55 €/kWh). CB via Paynow ou TPE sur bornes équipées. Pré-autorisation 5–100 €.',
+      'Prix par station/collectivité : ~0,35–0,55 €/kWh sans abonnement (relevés nov. 2026) ; abonnés ~0,30–0,38. IZIVIA Fast (McDonald’s) ~0,30–0,35 avec modulation horaire ; IZIVIA Express 0,40–0,55. Frais de session possibles selon réseau. CB via Paynow ou TPE sur bornes équipées.',
   },
   {
     id: 'tesla',
@@ -506,18 +531,18 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
       {
         powerMinKw: null,
         powerMaxKw: null,
-        value: 0.39,
-        valueMax: 0.44,
+        value: 0.42,
+        valueMax: 0.62,
         unit: '€/kWh',
         access: 'direct',
-        label: 'Supercharger (fourchette par station)',
+        label: 'Supercharger non-abonné (par station/heure)',
       },
     ],
-    source: 'https://www.tesla.com/support/charging/supercharger/fees',
-    checkedAt: CHECKED_AT,
-    confidence: 'high',
+    source: 'https://www.meilleurecharge.fr/operateur/tesla-supercharger',
+    checkedAt: CHECKED_AT_NOV_2026,
+    confidence: 'medium',
     notes:
-      'Tarification dynamique par station/heure (2026) : fourchette observée ~0,39–0,44 €/kWh en accès direct. Membres (11,99 €/mois) ~0,15 €/kWh moins cher. CB sur bornes V4/V5 uniquement.',
+      'Tarification dynamique par station et par heure : ~0,42–0,62 €/kWh non-abonné ; pics jusqu’à 0,74 €/kWh en journée sur certains sites (ex. Parly 2, 10h–19h), ~0,30 la nuit (22h–8h). Abonnement Supercharging (~9,99–12,99 €/mois) : ~0,21–0,28 €/kWh. CB sur bornes V4/V5 uniquement.',
   },
   {
     id: 'ionity',
@@ -529,18 +554,18 @@ export const OPERATOR_TARIFFS: readonly OperatorTariff[] = [
       {
         powerMinKw: null,
         powerMaxKw: null,
-        value: 0.51,
+        value: 0.52,
         valueMax: 0.59,
         unit: '€/kWh',
         access: 'direct',
-        label: 'ad-hoc appli (hors–sur autoroute, avr. 2026)',
+        label: 'ad-hoc appli (hors–sur autoroute, juil. 2026)',
       },
     ],
     source: 'https://www.ionity.eu/network/access-and-payments',
-    checkedAt: CHECKED_AT,
-    confidence: 'high',
+    checkedAt: CHECKED_AT_NOV_2026,
+    confidence: 'medium',
     notes:
-      'Depuis avr. 2026 (ad-hoc & nouveaux abos mensuels) : 0,51 €/kWh hors autoroute, 0,59 €/kWh sur autoroute (appli). Certaines bornes peuvent dépasser ces minima. CB direct : ~0,54 €/kWh hors autoroute. Abonnés antérieurs au 12/02/2026 et offres 365 : anciens tarifs.',
+      'Hausse au 01/07/2026 : +0,01 €/kWh hors autoroute en France (0,52 €/kWh via l’appli), autoroute inchangé (0,59). CB direct : 0,55–0,62 €/kWh. Abonnements : ~0,33–0,39 €/kWh selon formule. Abonnés antérieurs au 12/02/2026 et offres 365 : anciens tarifs.',
   },
   {
     id: 'easycharge',
